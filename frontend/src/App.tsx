@@ -1,7 +1,12 @@
 import React from "react";
+import ProgressForm from "./components/ProgressForm";
 
 function App() {
-  return <p>Hello World</p>;
+  return (
+<div>
+  <ProgressForm />
+</div>
+  ) 
 }
 
 export default App;
