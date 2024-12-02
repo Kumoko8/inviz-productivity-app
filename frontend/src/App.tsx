@@ -1,10 +1,17 @@
 import React from "react";
-import ProgressForm from "./components/ProgressForm";
+import MainForm from "./components/MainForm";
+import LeftColumnContent from "./components/LeftColumnContent";
+import RightColumnContent from "./components/RightColumnContent";
+import Header from "./components/Header";
+
 
 function App() {
   return (
 <div>
-  <ProgressForm />
+<Header />
+  <MainForm 
+  leftContent={<LeftColumnContent />}
+  rightContent={<RightColumnContent />}/>
 </div>
   ) 
 }
