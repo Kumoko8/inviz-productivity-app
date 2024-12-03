@@ -40,7 +40,7 @@ const XPBar: React.FC<XPBarProps> = ({
             <h3 className="text-lg font-semibold">{title}</h3>
             <div className="relative w-full h-6 bg-gray-200 rounded-md overflow-hidden">
                 <div
-                    className="absolute top-0 left-0 h-full bg-blue-500"
+                    className="absolute top-0 left-0 h-full bg-green-500"
                     style={{ width: `${progress}%` }}
                 ></div>
             </div>
