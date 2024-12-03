@@ -39,7 +39,7 @@ const ImageArray: React.FC<ImageArrayProps> = ({
         <h2 className="text-xl font-bold mb-4">Choose Your Character</h2>
       )}
 
-      {!confirmed ? (
+      {!confirmed && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {characters.map((char) => (
             <div
@@ -52,35 +52,10 @@ const ImageArray: React.FC<ImageArrayProps> = ({
                 alt={char.name}
                 className="w-full h-full object-cover"
               />
-              <p className="mt-2 text-sm">{char.name}</p>
             </div>
           ))}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center gap-4">
-          <h3 className="text-lg font-bold">{selectedName}</h3>
-          {selectedName && (
-            <div className="relative w-48 h-48 border border-gray-300 rounded-md overflow-hidden">
-              <img
-                src={
-                  selectedImage ||
-                  characters
-                    .find((char) => char.name === selectedName)
-                    ?.confirmedImages[
-                      getImageIndex(
-                        currentProgress,
-                        characters.find((char) => char.name === selectedName)
-                          ?.thresholds || []
-                      )
-                    ]
-                }
-                alt={selectedName || "Selected Character"}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
-        </div>
-      )}
+          </div>
+      ) } 
     </div>
   );
 };

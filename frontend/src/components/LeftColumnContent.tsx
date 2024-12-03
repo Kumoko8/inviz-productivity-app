@@ -47,10 +47,6 @@ const LeftColumnContent: React.FC = () => {
 
       <div className="bg-white border border-gray-200 rounded-md p-2 text-center flex-grow">
         <ImageArray
-          baseImages={characters.map((char) => char.baseImages[0])}
-          confirmedImages={selectedCharacterData?.confirmedImages || []}
-          thresholds={selectedCharacterData?.thresholds || [100]}
-          characterName={selectedCharacter || "Select a Character"}
           currentProgress={progress}
           confirmed={!!selectedCharacter}
           onCharacterSelect={setSelectedCharacter}
@@ -75,7 +71,6 @@ const LeftColumnContent: React.FC = () => {
               title="XP"
               initialLevel={dots}
               initialProgress={progress}
-              maxProgress={100} // Single XP bar fills up to 100%
               thresholds={selectedCharacterData.thresholds || [100]}
               confirmedImages={selectedCharacterData.confirmedImages || []}
               onProgressChange={onProgressChange}
