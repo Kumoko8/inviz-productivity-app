@@ -1,53 +1,84 @@
 import React, { useState } from "react";
+import characters from "./CharacterData"; // Import character data
 
 interface ImageArrayProps {
-  images: string[]; // Array of image URLs
+  currentProgress: number; // Current progress to determine the image
+  confirmed: boolean; // Whether the selection has been confirmed
+  onCharacterSelect: (name: string) => void; // Callback to notify parent of selected character
 }
 
-const ImageArray: React.FC<ImageArrayProps> = ({ images }) => {
+const ImageArray: React.FC<ImageArrayProps> = ({
+  currentProgress,
+  confirmed,
+  onCharacterSelect,
+}) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedName, setSelectedName] = useState<string | null>(null);
 
-  const handleImageClick = (src: string) => {
-    setSelectedImage(src); // Set the clicked image as the selected image
+  // Function to determine image index based on current progress
+  const getImageIndex = (progress: number, thresholds: number[]) => {
+    for (let i = 0; i < thresholds.length; i++) {
+      if (progress < thresholds[i]) {
+        return i;
+      }
+    }
+    return thresholds.length - 1; // Return last index if progress exceeds all thresholds
   };
 
-  const handleBackToGrid = () => {
-    setSelectedImage(null); // Reset the selected image to show all images
+  const handleImageClick = (image: string, name: string) => {
+    if (!confirmed) {
+      setSelectedImage(image); // Set selected image before confirmation
+      setSelectedName(name); // Set selected name
+      onCharacterSelect(name); // Notify parent about character selection
+    }
   };
 
   return (
-    <div className="w-full h-64 border border-gray-300 rounded-lg  p-2">
-      {selectedImage ? (
-        // Display the selected image only
-        <div className="w-full h-full flex justify-center items-center flex-col">
-          <img
-            src={selectedImage}
-            alt="Selected Character"
-            className="object-cover w-full h-full rounded-md"
-          />
-          <button
-            onClick={handleBackToGrid}
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-          >
-            Back
-          </button>
-        </div>
-      ) : (
-        // Display all images in a grid before any selection
-        <div className="grid grid-cols-3 gap-2 h-full">
-          {images.map((src, index) => (
+    <div className="flex flex-col items-center gap-4">
+      {!confirmed && (
+        <h2 className="text-xl font-bold mb-4">Choose Your Character</h2>
+      )}
+
+      {!confirmed ? (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {characters.map((char) => (
             <div
-              key={index}
-              className="relative w-full h-full cursor-pointer"
-              onClick={() => handleImageClick(src)} // Click to select image
+              key={char.name}
+              className="flex flex-col items-center w-32 h-32 border border-gray-300 rounded-md overflow-hidden cursor-pointer transform hover:scale-110 transition duration-300"
+              onClick={() => handleImageClick(char.baseImages[0], char.name)}
             >
               <img
-                src={src}
-                alt={`Character ${index}`}
-                className="object-cover w-full h-full rounded-md"
+                src={char.baseImages[0]}
+                alt={char.name}
+                className="w-full h-full object-cover"
               />
+              <p className="mt-2 text-sm">{char.name}</p>
             </div>
           ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-4">
+          <h3 className="text-lg font-bold">{selectedName}</h3>
+          {selectedName && (
+            <div className="relative w-48 h-48 border border-gray-300 rounded-md overflow-hidden">
+              <img
+                src={
+                  selectedImage ||
+                  characters
+                    .find((char) => char.name === selectedName)
+                    ?.confirmedImages[
+                      getImageIndex(
+                        currentProgress,
+                        characters.find((char) => char.name === selectedName)
+                          ?.thresholds || []
+                      )
+                    ]
+                }
+                alt={selectedName || "Selected Character"}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -55,4 +86,3 @@ const ImageArray: React.FC<ImageArrayProps> = ({ images }) => {
 };
 
 export default ImageArray;
-
