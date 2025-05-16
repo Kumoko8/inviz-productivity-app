@@ -1,13 +1,16 @@
-const rows = ["Items", "Row 2"];
+import SkillItem from "./SkillItem";
+import SkillTracker from "./SkillTracker";
+
+
 
 const RightColumnContent: React.FC = () => {
   return (
     <div className="right-column-content">
-      {rows.map((row, index) => (
-        <div key={index} className="right-column-content__row">
-          {row}
-        </div>
-      ))}
+      
+          <SkillTracker
+/>
+        
+
     </div>
   );
 };
