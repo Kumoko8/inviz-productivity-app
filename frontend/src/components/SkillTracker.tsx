@@ -9,8 +9,8 @@ interface Skill {
 
 const SkillTracker: React.FC = () => {
   const [skills, setSkills] = useState<Skill[]>([
-    { name: "Speaking", progress: 0, mastered: false },
-    { name: "Reading", progress: 0, mastered: false },
+    { name: "Algebra", progress: 50, mastered: false },
+    { name: "3D forms", progress: 50, mastered: false },
   ]);
 
   const handleProgressUpdate = (skillName: string, newProgress: number) => {
