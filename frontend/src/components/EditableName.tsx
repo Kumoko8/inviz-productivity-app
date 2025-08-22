@@ -17,7 +17,7 @@ const EditableName: React.FC = () => {
         type="text"
         value={name}
         onChange={handleChange}
-        placeholder="Your name"
+        placeholder="Please type here"
         className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
       {name && <p className="mt-2 text-blue-500">Hello, {name}!</p>}
