@@ -1,25 +1,22 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document, Types } from "mongoose";
+import skillSchema, { ISkill } from "./Skill";
 
-export interface ISkill {
+interface ICharacter extends Document {
   name: string;
-  mastered: boolean;
+  user: Types.ObjectId;
+  skills: Types.DocumentArray<ISkill>;
+  hp: number;
+  xp: number;
+  level: number;
 }
 
-export interface ICharacter extends Document {
-  userId: mongoose.Types.ObjectId;
-  name: string;
-  skills: ISkill[];
-}
-
-const CharacterSchema: Schema = new Schema({
-  userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+const characterSchema = new Schema<ICharacter>({
   name: { type: String, required: true },
-  skills: [
-    {
-      name: { type: String, required: true },
-      mastered: { type: Boolean, default: false },
-    },
-  ],
+  user: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  skills: [skillSchema],
+  hp: { type: Number, default: 100 },
+  xp: { type: Number, default: 0 },
+  level: { type: Number, default: 1 },
 });
 
-export default mongoose.model<ICharacter>("Character", CharacterSchema);
+export default mongoose.model<ICharacter>("Character", characterSchema);
