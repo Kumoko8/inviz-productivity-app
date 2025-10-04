@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { authMiddleware } from "../middleware/authMiddleware";
 import Character from "../models/Character";
 
 const router = Router();
