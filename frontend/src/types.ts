@@ -6,6 +6,7 @@ export interface User {
 }
 
 export interface Skill {
+  _id: string;
   name: string;
   progress: number;   // 0–100 %
   mastered: boolean;

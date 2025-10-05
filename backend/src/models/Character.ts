@@ -4,7 +4,7 @@ import skillSchema, { ISkill } from "./Skill";
 interface ICharacter extends Document {
   name: string;
   user: Types.ObjectId;
-  skills: Types.DocumentArray<ISkill>;
+  skills: ISkill[];
   hp: number;
   xp: number;
   level: number;
