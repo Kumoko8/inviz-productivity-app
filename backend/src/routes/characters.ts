@@ -1,35 +1,38 @@
-import { Router } from "express";
+import express from "express";
 import { authMiddleware } from "../middleware/authMiddleware";
 import Character from "../models/Character";
+import { addCharacter, deleteCharacter, getCharacters } from "../controllers/characterController";
+import skillRoutes from "./skills"; // Import skill routes
 
-const router = Router();
+const router = express.Router();
 
-// Create new character
-router.post("/", async (req, res) => {
-  try {
-    const { userId, name } = req.body;
-    const character = new Character({ userId, name, skills: [] });
-    await character.save();
-    res.status(201).json(character);
-  } catch (err) {
-    res.status(500).json({ error: "Server error" });
-  }
-});
+// Require auth for all character routes
+router.use(authMiddleware);
 
-// Add skill to character
-router.post("/:id/skills", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name } = req.body;
-    const character = await Character.findById(id);
-    if (!character) return res.status(404).json({ message: "Character not found" });
+/**
+ * Get all characters for the logged-in user
+ */
+router.get("/", getCharacters);
 
-    character.skills.push({ name, mastered: false });
-    await character.save();
-    res.json(character);
-  } catch (err) {
-    res.status(500).json({ error: "Server error" });
-  }
-});
+/**
+ * Add a new character
+ */
+router.post("/", addCharacter);
+
+/**
+ * Delete a character
+ */
+router.delete("/:id", deleteCharacter);
+
+/**
+ * Choose a premade character
+ */
+router.put("/:id/choose", addCharacter);
+
+/**
+ * Nested skill routes
+ * URL format: /api/characters/:id/skills/...
+ */
+router.use("/:id/skills", skillRoutes);
 
 export default router;
