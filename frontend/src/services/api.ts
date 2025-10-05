@@ -1,50 +1,91 @@
 // frontend/services/api.ts
 import axios from "axios";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
 // Create an axios instance with baseURL
 const api = axios.create({
-  baseURL: "http://localhost:5000/api", // adjust to your backend URL
+  baseURL: API_URL,
 });
 
-// Add a request interceptor to include the auth token if present
+// Automatically attach JWT if found
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token"); // assume you store JWT in localStorage
+  const token = localStorage.getItem("token");
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
-// Example API calls:
+// --------------------
+// 🧍 USER AUTH
+// --------------------
+export const loginUser = async (email: string, password: string) => {
+  const res = await api.post("/auth/login", { email, password });
+  return res.data;
+};
 
-// --- User Auth ---
-export const loginUser = (email: string, password: string) =>
-  api.post("/auth/login", { email, password });
+export const registerUser = async (
+  name: string,
+  email: string,
+  password: string
+) => {
+  const res = await api.post("/auth/register", { name, email, password });
+  return res.data;
+};
 
-export const registerUser = (name: string, email: string, password: string) =>
-  api.post("/auth/register", { name, email, password });
+// --------------------
+// 🧙 CHARACTERS
+// --------------------
+export const getCharacters = async () => {
+  const res = await api.get("/characters");
+  return res.data;
+};
 
-// --- Characters ---
-export const getCharacters = () => api.get("/characters");
-export const createCharacter = (name: string, baseImage: string) =>
-  api.post("/characters", { name, baseImage });
-export const deleteCharacter = (charId: string) =>
-  api.delete(`/characters/${charId}`);
-export const chooseCharacter = (charId: string) =>
-  api.put(`/characters/${charId}/choose`); // example route for choosing
+export const createCharacter = async (name: string, baseImage: string) => {
+  const res = await api.post("/characters", { name, baseImage });
+  return res.data;
+};
 
-// --- Skills ---
-export const addSkill = (charId: string, name: string) =>
-  api.post(`/characters/${charId}/skills`, { name });
+export const deleteCharacter = async (charId: string) => {
+  const res = await api.delete(`/characters/${charId}`);
+  return res.data;
+};
 
-export const deleteSkill = (charId: string, skillId: string) =>
-  api.delete(`/characters/${charId}/skills/${skillId}`);
+export const chooseCharacter = async (charId: string) => {
+  const res = await api.put(`/characters/${charId}/choose`);
+  return res.data;
+};
 
-export const updateSkill = (
+// --------------------
+// 🧩 SKILLS
+// --------------------
+export const getSkills = async (characterId: string) => {
+  const res = await api.get(`/characters/${characterId}/skills`);
+  return res.data;
+};
+
+export const addSkill = async (charId: string, name: string) => {
+  const res = await api.post(`/characters/${charId}/skills`, { name });
+  return res.data;
+};
+
+export const deleteSkill = async (charId: string, skillId: string) => {
+  const res = await api.delete(`/characters/${charId}/skills/${skillId}`);
+  return res.data;
+};
+
+export const updateSkill = async (
   charId: string,
   skillId: string,
   progress: number,
   mastered: boolean
-) => api.put(`/characters/${charId}/skills/${skillId}`, { progress, mastered });
+) => {
+  const res = await api.put(`/characters/${charId}/skills/${skillId}`, {
+    progress,
+    mastered,
+  });
+  return res.data;
+};
 
 export default api;

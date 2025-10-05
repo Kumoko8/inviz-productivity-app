@@ -1,12 +1,15 @@
 import express from "express";
-import { authMiddleware } from "../middleware/authMiddleware";
 import {
+    getSkills,
   addSkill,
   deleteSkill,
   updateSkillProgress,
 } from "../controllers/skillController";
 
 const router = express.Router({ mergeParams: true }); // mergeParams lets us access :characterId
+
+//Get skills
+router.get("/", getSkills);
 
 // Add a skill to a character
 router.post("/", addSkill);

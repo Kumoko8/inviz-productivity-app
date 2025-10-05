@@ -2,6 +2,21 @@ import { Request, Response } from "express";
 import Character from "../models/Character";
 import { Types } from "mongoose";
 
+//Get all skills for character
+export const getSkills = async (req: Request, res: Response) => {
+  try {
+    const { characterId } = req.params;
+    const character = await Character.findById(characterId);
+
+    if (!character) return res.status(404).json({ message: "Character not found" });
+
+    res.json(character.skills);
+  } catch (error) {
+    console.error("Error fetching skills:", error);
+    res.status(500).json({ message: "Failed to fetch skills" });
+  }
+};
+
 // Add a new skill to a character
 export const addSkill = async (req: Request, res: Response) => {
   try {
