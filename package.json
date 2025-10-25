@@ -10,7 +10,7 @@
     "dev:fe": "npm start --prefix ./frontend",
     "check-types": "tsc",
     "prettier": "prettier --write .",
-   "build:backend": "tsc --project backend/tsconfig.json",
+    "build:backend": "tsc --project backend/tsconfig.json",
     "build:frontend": "npm run build --prefix ./frontend",
     "build": "tsc && npm run build:frontend"
   },
@@ -24,6 +24,7 @@
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-async-handler": "^1.2.0",
+    "firebase": "^12.4.0",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.20.0",
     "mongoose": "^8.19.0",
