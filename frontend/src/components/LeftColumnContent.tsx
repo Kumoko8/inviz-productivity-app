@@ -4,6 +4,8 @@ import XPBar from "./XPBar";
 import ProgressBar from "./ProgressBar";
 import ImageArray from "./ImageArray";
 import characters from "./CharacterData";
+import { addCharacterToUser } from "../services/characterService";
+
 
 const LeftColumnContent: React.FC = () => {
   const [progress, setProgress] = useState(0); // Tracks current XP progress
@@ -49,7 +51,12 @@ const LeftColumnContent: React.FC = () => {
         <ImageArray
           currentProgress={progress}
           confirmed={!!selectedCharacter}
-          onCharacterSelect={setSelectedCharacter}
+          onCharacterSelect={(charName) => {
+            setSelectedCharacter(charName);
+            // For now, you can hardcode userId until auth is set up
+            const userId = "testUser123";
+            addCharacterToUser(userId, charName);
+          }}
         />
       </div>
 
