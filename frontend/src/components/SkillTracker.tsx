@@ -1,89 +1,59 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import SkillItem from "./SkillItem";
-import {
-  getSkills,
-  addSkill,
-  updateSkill,
-  deleteSkill,
-} from "../services/api";
 
 interface Skill {
-  _id: string;
+  id: string;
   name: string;
   progress: number;
   mastered: boolean;
 }
 
 interface SkillTrackerProps {
-  characterId: string; // we’ll pass this from the character context or prop
+  characterId: string;
 }
 
 const SkillTracker: React.FC<SkillTrackerProps> = ({ characterId }) => {
   const [skills, setSkills] = useState<Skill[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Load skills from backend
-  useEffect(() => {
-    const fetchSkills = async () => {
-      try {
-        const data = await getSkills(characterId);
-        setSkills(data);
-      } catch (err) {
-        console.error("Failed to load skills:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (characterId) fetchSkills();
-  }, [characterId]);
 
   // Add new skill
-  const handleAddSkill = async () => {
+  const handleAddSkill = () => {
     const name = prompt("Enter a new skill:");
     if (!name) return;
 
-    try {
-      const newSkill = await addSkill(characterId, name);
-      setSkills((prev) => [...prev, newSkill]);
-    } catch (err) {
-      console.error("Error adding skill:", err);
-    }
+    const newSkill: Skill = {
+      id: Date.now().toString(),
+      name,
+      progress: 0,
+      mastered: false,
+    };
+
+    setSkills((prev) => [...prev, newSkill]);
   };
 
-  // Update skill progress or mastered status
-  const handleProgressUpdate = async (
+  // Update skill progress or mastery
+  const handleProgressUpdate = (
     skillId: string,
     newProgress: number,
     mastered = false
   ) => {
-    try {
-      const updatedSkill = await updateSkill(
-        characterId,
-        skillId,
-        newProgress,
-        mastered
-      );
-      setSkills((prev) =>
-        prev.map((s) => (s._id === skillId ? updatedSkill : s))
-      );
-    } catch (err) {
-      console.error("Error updating skill:", err);
-    }
+    setSkills((prev) =>
+      prev.map((skill) =>
+        skill.id === skillId
+          ? {
+              ...skill,
+              progress: newProgress,
+              mastered,
+            }
+          : skill
+      )
+    );
   };
 
   // Delete skill
-  const handleDeleteSkill = async (skillId: string) => {
+  const handleDeleteSkill = (skillId: string) => {
     if (!confirm("Are you sure you want to delete this skill?")) return;
-    try {
-      await deleteSkill(characterId, skillId);
-      setSkills((prev) => prev.filter((s) => s._id !== skillId));
-    } catch (err) {
-      console.error("Error deleting skill:", err);
-    }
+    setSkills((prev) => prev.filter((s) => s.id !== skillId));
   };
-
-  if (loading) return <p>Loading skills...</p>;
 
   return (
     <div className="p-4 bg-gray-100 rounded-md">
@@ -99,14 +69,14 @@ const SkillTracker: React.FC<SkillTrackerProps> = ({ characterId }) => {
       <div className="flex flex-col gap-4">
         {skills.map((skill) => (
           <SkillItem
-            key={skill._id}
+            key={skill.id}
             name={skill.name}
             progress={skill.progress}
             onProgressUpdate={(newProgress) =>
-              handleProgressUpdate(skill._id, newProgress)
+              handleProgressUpdate(skill.id, newProgress)
             }
-            onMaster={() => handleProgressUpdate(skill._id, 100, true)}
-            onDelete={() => handleDeleteSkill(skill._id)}
+            onMaster={() => handleProgressUpdate(skill.id, 100, true)}
+            onDelete={() => handleDeleteSkill(skill.id)}
           />
         ))}
       </div>
