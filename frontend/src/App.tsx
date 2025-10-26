@@ -1,23 +1,22 @@
-import React from "react";
-import { UserProvider } from "./context/UserContext"; // wherever your context is
-import MainForm from "./components/MainForm";
-import LeftColumnContent from "./components/LeftColumnContent";
-import RightColumnContent from "./components/RightColumnContent";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Header from "./components/Header";
-
+import Home from "../src/pages/Home";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import Dashboard from "./pages/Dashboard";
 
 function App() {
   return (
-<UserProvider>
-
-<div>
-<Header />
-  <MainForm 
-  leftContent={<LeftColumnContent />}
-  rightContent={<RightColumnContent />}/>
-</div>
-  </UserProvider>
-  ); 
+    <Router>
+      <Header />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+      </Routes>
+    </Router>
+  );
 }
 
 export default App;
