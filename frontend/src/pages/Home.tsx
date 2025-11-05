@@ -25,7 +25,7 @@ const Home: React.FC = () => {
         </Link>
         <Link
           to="/signup"
-          className="px-6 py-3 rounded-lg font-semibold text-black bg-magenta-500 hover:bg-magenta-400 transition-colors duration-300 shadow-md"
+          className="px-6 py-3 rounded-lg font-semibold text-white bg-magenta-500 hover:bg-magenta-400 transition-colors duration-300 shadow-md"
         >
           Sign Up
         </Link>
