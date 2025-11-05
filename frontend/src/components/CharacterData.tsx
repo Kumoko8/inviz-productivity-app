@@ -16,6 +16,7 @@ import Maguro2 from '../assets/Maguro_2.jpg'
 import Maguro3 from '../assets/Maguro_3.jpg'
 import Maguro5 from '../assets/Maguro_5.jpg'
 import Maguro6 from '../assets/Maguro_6.jpg'
+import Lucas4 from '../assets/Lucas_4.jpg'
 
 const characters = [
     {
@@ -35,6 +36,12 @@ const characters = [
         baseImages: [Maguro4],
         confirmedImages: [Maguro1, Maguro2, Maguro3, Maguro4, Maguro5, Maguro6],
         thresholds: [2, 4, 8, 15, 30], // Thresholds for Maguro's progression
+    },
+    {
+        name: 'Lucas',
+        baseImages: [Lucas4],
+        confirmedImages: [ ],
+        thresholds: [2, 4, 8, 15, 30], // Thresholds for Lucas's progression
     },
 ];
 

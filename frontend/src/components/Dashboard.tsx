@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { auth, db } from "../firebase";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import SkillItem from "../components/SkillItem";
-import ImageArray from "../components/ImageArray"; // your character selector
 import Characters from "../components/CharacterData";
 
 interface Skill {
