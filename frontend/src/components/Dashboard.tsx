@@ -188,7 +188,7 @@ const Dashboard: React.FC = () => {
       {/* Skill Tracker */}
       <div className="w-full max-w-md bg-white rounded-lg shadow-md p-6 border border-cyan-200 mb-8">
         <h2 className="text-2xl font-bold text-center text-cyan-700 mb-4">
-          Skill Tracker
+          Skills
         </h2>
 
         <button
@@ -217,7 +217,7 @@ const Dashboard: React.FC = () => {
       {/* XP Section */}
       <div className="w-full max-w-md bg-white rounded-lg shadow-md p-6 border border-cyan-200">
         <h2 className="text-2xl font-bold text-center text-cyan-700 mb-4">
-          XP Tracker
+          XP 
         </h2>
 
         <div className="flex items-center justify-between mb-3">
