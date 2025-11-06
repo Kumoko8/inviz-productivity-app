@@ -1,5 +1,5 @@
 {
-  "name": "vite-mern-template",
+  "name": "inviz-productivity-app",
   "version": "1.0.2",
   "main": "backend/src/index.ts",
   "scripts": {
@@ -14,7 +14,7 @@
     "build:frontend": "npm run build --prefix ./frontend",
     "build": "npm run build:frontend"
   },
-  "repository": "https://github.com/apicgg/vite-mern-template.git",
+  "repository": "https://github.com/apicgg/inviz-productivity-app.git",
   "license": "MIT",
   "dependencies": {
     "@emotion/react": "^11.11.4",
