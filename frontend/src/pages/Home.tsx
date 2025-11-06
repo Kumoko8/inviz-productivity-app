@@ -10,8 +10,7 @@ const Home: React.FC = () => {
           Welcome to INVIZ Productivity
         </h1>
         <p className="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto">
-          Boost your focus, track your goals, and unlock your full potential with
-          tools designed to help you stay organized and motivated.
+          Transforming "must do" into "want to"
         </p>
       </div>
 
@@ -25,7 +24,7 @@ const Home: React.FC = () => {
         </Link>
         <Link
           to="/signup"
-          className="px-6 py-3 rounded-lg font-semibold text-white bg-magenta-500 hover:bg-magenta-400 transition-colors duration-300 shadow-md"
+          className="px-6 py-3 rounded-lg font-semibold text-white bg-yellow-500 hover:bg-magenta-400 transition-colors duration-300 shadow-md"
         >
           Sign Up
         </Link>
