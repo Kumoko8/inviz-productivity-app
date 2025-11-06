@@ -1,8 +1,8 @@
 {
-  "name": "vite-mern-template-client",
+  "name": "inviz-productivity-app",
   "version": "1.0.2",
   "type": "module",
-  "repository": "https://github.com/apicgg/vite-mern-template.git",
+  "repository": "https://github.com/apicgg/inviz-productivity-app.git",
   "license": "MIT",
   "scripts": {
     "start": "vite",
