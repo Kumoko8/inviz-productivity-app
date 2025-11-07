@@ -175,11 +175,10 @@ const Dashboard: React.FC = () => {
 
   {selectedCharacter && (
     <div className="mt-4 text-center">
-      <img
-        src={selectedCharacter.baseImages}
-        alt={selectedCharacter.name}
-        className="mx-auto w-32 h-32 object-cover rounded-full border-4 border-cyan-500"
-      />
+      
+      {selectedCharacter?.animation && (
+        <video src={selectedCharacter.animation}autoPlay loop muted className="w-64 h-64 object-cover"/>
+      )}
       <p className="mt-2 font-bold">{selectedCharacter.name}</p>
     </div>
   )}
