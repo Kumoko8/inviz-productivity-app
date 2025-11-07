@@ -3,14 +3,14 @@ import Kiiro4 from '../assets/Kiiro_4.jpg'
 import Jack4 from '../assets/Jack_4.jpg'
 import Maguro5 from '../assets/Maguro_5.jpg'
 import Lucas4 from '../assets/Lucas_4.jpg'
-import JackVideo from '../assets/test.mp4'
+import HalVideo from '../assets/HalVid.mp4'
 
 const characters = [
     {
         name: 'Kumo',
         baseImages: [Kumo3],
         confirmedImages: [Kumo3],
-        animation: [5, 8, 12, 20, 35], // Thresholds for Kumo's progression
+        animation: [], // Thresholds for Kumo's progression
     },
     {
         name: 'Kiiro',
@@ -31,10 +31,10 @@ const characters = [
         animation: [2, 4, 8, 15, 30], // Thresholds for Lucas's progression
     },
     {
-        name: 'Jack',
-        baseImages: [Jack4],
+        name: 'Hal',
+        baseImages: [ ],
         confirmedImages: [ ],
-        animation: [JackVideo], // Thresholds for Jack's progression
+        animation: [HalVideo], // Thresholds for Jack's progression
     },
 ];
 
