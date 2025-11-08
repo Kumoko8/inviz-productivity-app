@@ -3,6 +3,7 @@ import { auth, db } from "../firebase";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import SkillItem from "../components/SkillItem";
 import Characters from "../components/CharacterData";
+import CharacterTextField from "./CharacterTextField";
 
 interface Skill {
   id: string;
@@ -15,7 +16,7 @@ const Dashboard: React.FC = () => {
   const user = auth.currentUser;
   const [loaded, setLoaded] = useState(false);
   const [characterHp, setCharacterHp] = useState<Record<string, number>>({});
-  const [characterXp, setCharacterXp] = useState<Record<string, {xp: number, level: number}>>({});
+  const [characterXp, setCharacterXp] = useState<Record<string, { xp: number, level: number }>>({});
   const [characterSkills, setCharacterSkills] = useState<Record<string, Skill[]>>({});
   // const [skills, setSkills] = useState<Skill[]>([]);
   const [selectedCharacter, setSelectedCharacter] = useState<any | null>(
@@ -46,8 +47,8 @@ const Dashboard: React.FC = () => {
           level: 1,
           skills: [],
           character: null,
-        }, {merge: true}
-      );
+        }, { merge: true }
+        );
       }
       setLoaded(true);
     };
@@ -68,36 +69,36 @@ const Dashboard: React.FC = () => {
 
   const currentCharName = selectedCharacter?.name || "default";
   // --- HP Controls ---
-  
-  
-  const decreaseHP = () => setCharacterHp((prev) => ({...prev, [currentCharName]: Math.max((prev[currentCharName] || 100) - 10, 0),})) ;
-  const increaseHP = () => 
-  setCharacterHp((prev) => ({...prev, [currentCharName]: Math.min((prev[currentCharName] || 100) + 10, MAX_HP),})) ;
-  
+
+
+  const decreaseHP = () => setCharacterHp((prev) => ({ ...prev, [currentCharName]: Math.max((prev[currentCharName] || 100) - 10, 0), }));
+  const increaseHP = () =>
+    setCharacterHp((prev) => ({ ...prev, [currentCharName]: Math.min((prev[currentCharName] || 100) + 10, MAX_HP), }));
+
   // --- XP Controls ---
   const addXP = (amount: number) => {
     setCharacterXp((prev) => {
-      const current = prev[currentCharName] || {xp: 0, level: 1};
+      const current = prev[currentCharName] || { xp: 0, level: 1 };
       let newXP = current.xp + amount;
       let newLevel = current.level;
-      
+
       let nextLevelXP = Math.pow(newLevel, 3);
-      
-      while(newXP >= nextLevelXP) {
+
+      while (newXP >= nextLevelXP) {
         newXP -= nextLevelXP;
         newLevel += 1;
         nextLevelXP = Math.pow(newLevel, 3);
       }
       return {
-        ...prev, [selectedCharacter?.name]:{ xp: newXP, level: newLevel}
+        ...prev, [selectedCharacter?.name]: { xp: newXP, level: newLevel }
       }
     })
   };
-  
+
   // --- Skills ---
-  
+
   const handleAddSkill = () => {
-    if(!selectedCharacter){
+    if (!selectedCharacter) {
       alert("Please select a character first");
       return;
     }
@@ -109,27 +110,27 @@ const Dashboard: React.FC = () => {
       progress: 0,
       mastered: false,
     };
-    setCharacterSkills((prev) => ({...prev, [currentCharName]:[...(prev[currentCharName] || []), newSkill], }));
+    setCharacterSkills((prev) => ({ ...prev, [currentCharName]: [...(prev[currentCharName] || []), newSkill], }));
   };
-  
+
   const handleProgressUpdate = (
     id: string,
     newProgress: number,
     mastered = false
   ) => {
-    setCharacterSkills((prev) => ({...prev, [currentCharName]: prev[currentCharName].map((s) => s.id === id ? {...s, progress: newProgress, mastered} : s)})
-    
-  );
-};
+    setCharacterSkills((prev) => ({ ...prev, [currentCharName]: prev[currentCharName].map((s) => s.id === id ? { ...s, progress: newProgress, mastered } : s) })
 
-const handleDeleteSkill = (id: string) => {
-  if (!confirm("Are you sure you want to delete this skill?")) return;
-  setCharacterSkills((prev) => ({...prev, [currentCharName]: prev[currentCharName].filter((s) => s.id !== id)}));
-};
+    );
+  };
 
-const { xp, level } = characterXp[selectedCharacter?.name] || {xp:0, level: 1};
-const nextLevelXP = Math.pow(level, 3);
-const xpPercent = (xp / nextLevelXP) * 100;
+  const handleDeleteSkill = (id: string) => {
+    if (!confirm("Are you sure you want to delete this skill?")) return;
+    setCharacterSkills((prev) => ({ ...prev, [currentCharName]: prev[currentCharName].filter((s) => s.id !== id) }));
+  };
+
+  const { xp, level } = characterXp[selectedCharacter?.name] || { xp: 0, level: 1 };
+  const nextLevelXP = Math.pow(level, 3);
+  const xpPercent = (xp / nextLevelXP) * 100;
   const hp = characterHp[currentCharName] ?? MAX_HP;
 
   return (
@@ -170,35 +171,37 @@ const xpPercent = (xp / nextLevelXP) * 100;
 
       {/* Character Selector */}
       <div className="mt-4">
-  <label className="font-semibold">Choose Character:</label>
-  <select
-    className="ml-2 border rounded px-2 py-1"
-    value={selectedCharacter?.name || ""}
-    onChange={(e) => {
-      const char = Characters.find((c) => c.name === e.target.value);
-      setSelectedCharacter(char || null);
-    }}
-  >
-    <option value="">Select...</option>
-    {Characters.map((c) => (
-      <option key={c.name} value={c.name}>
-        {c.name}
-      </option>
-    ))}
-  </select>
-  {/* animation */}
-  {selectedCharacter && (
-    <div className="mt-4 text-center">
-      
-      {selectedCharacter?.animation && (
-        <video src={selectedCharacter.animation} autoPlay loop muted className="w-64 h-64 object-cover" aria-label={`${selectedCharacter.name} animation`}/>
-        
-      )}
-      <p className="mt-2 font-bold">{selectedCharacter.name}</p>
-    </div>
-  )}
-</div>
+        <label className="font-semibold">Choose Character:</label>
+        <select
+          className="ml-2 border rounded px-2 py-1"
+          value={selectedCharacter?.name || ""}
+          onChange={(e) => {
+            const char = Characters.find((c) => c.name === e.target.value);
+            setSelectedCharacter(char || null);
+          }}
+        >
+          <option value="">Select...</option>
+          {Characters.map((c) => (
+            <option key={c.name} value={c.name}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        {/* animation */}
+        {selectedCharacter && (
+          <div className="mt-4 text-center">
 
+            {selectedCharacter?.animation && (
+              <video src={selectedCharacter.animation} autoPlay loop muted className="w-64 h-64 object-cover" aria-label={`${selectedCharacter.name} animation`} />
+
+            )}
+            <p className="mt-2 font-bold">{selectedCharacter.name}</p>
+          </div>
+        )}
+      </div>
+
+
+      <CharacterTextField selectedCharacter={selectedCharacter} />
       {/* Skill Tracker */}
       <div className="w-full max-w-md bg-white rounded-lg shadow-md p-6 border border-cyan-200 mb-8">
         <h2 className="text-2xl font-bold text-center text-cyan-700 mb-4">
@@ -231,7 +234,7 @@ const xpPercent = (xp / nextLevelXP) * 100;
       {/* XP Section */}
       <div className="w-full max-w-md bg-white rounded-lg shadow-md p-6 border border-cyan-200">
         <h2 className="text-2xl font-bold text-center text-cyan-700 mb-4">
-          XP 
+          XP
         </h2>
 
         <div className="flex items-center justify-between mb-3">
