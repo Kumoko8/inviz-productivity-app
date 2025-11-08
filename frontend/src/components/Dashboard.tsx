@@ -14,16 +14,16 @@ interface Skill {
 const Dashboard: React.FC = () => {
   const user = auth.currentUser;
   const [loaded, setLoaded] = useState(false);
-  const [hp, setHp] = useState(100);
-  const [xp, setXp] = useState(0);
-  const [level, setLevel] = useState(1);
-  const [skills, setSkills] = useState<Skill[]>([]);
+  const [characterHp, setCharacterHp] = useState<Record<string, number>>({});
+  const [characterXp, setCharacterXp] = useState<Record<string, {xp: number, level: number}>>({});
+  const [characterSkills, setCharacterSkills] = useState<Record<string, Skill[]>>({});
+  // const [skills, setSkills] = useState<Skill[]>([]);
   const [selectedCharacter, setSelectedCharacter] = useState<any | null>(
     null
   );
 
   const MAX_HP = 100;
-  const XP_PER_LEVEL = 100;
+
 
   // Load user data from Firestore
   useEffect(() => {
@@ -34,10 +34,9 @@ const Dashboard: React.FC = () => {
 
       if (snap.exists()) {
         const data = snap.data();
-        setHp(data.hp ?? 100);
-        setXp(data.xp ?? 0);
-        setLevel(data.level ?? 1);
-        setSkills(data.skills ?? []);
+        setCharacterHp(data.characterHp ?? {});
+        setCharacterXp(data.characterXp ?? {});
+        setCharacterSkills(data.characterSkills ?? {});
         setSelectedCharacter(data.character ?? null);
       } else {
         // initialize user doc
@@ -61,33 +60,47 @@ const Dashboard: React.FC = () => {
     const saveData = async () => {
       const ref = doc(db, "users", user.uid);
       await updateDoc(ref, {
-        hp,
-        xp,
-        level,
-        skills,
-        character: selectedCharacter,
+        character: selectedCharacter, characterSkills, characterHp, characterXp,
       });
     };
     saveData();
-  }, [hp, xp, level, skills, selectedCharacter, loaded, user]);
+  }, [characterHp, characterXp, characterSkills, selectedCharacter, loaded, user]);
 
+  const currentCharName = selectedCharacter?.name || "default";
   // --- HP Controls ---
-  const increaseHP = () => setHp((prev) => Math.min(prev + 10, MAX_HP));
-  const decreaseHP = () => setHp((prev) => Math.max(prev - 10, 0));
-
+  
+  
+  const decreaseHP = () => setCharacterHp((prev) => ({...prev, [currentCharName]: Math.max((prev[currentCharName] || 100) - 10, 0),})) ;
+  const increaseHP = () => 
+  setCharacterHp((prev) => ({...prev, [currentCharName]: Math.min((prev[currentCharName] || 100) + 10, MAX_HP),})) ;
+  
   // --- XP Controls ---
   const addXP = (amount: number) => {
-    const newXP = xp + amount;
-    if (newXP >= XP_PER_LEVEL) {
-      setLevel((prev) => prev + 1);
-      setXp(newXP - XP_PER_LEVEL);
-    } else {
-      setXp(newXP);
-    }
+    setCharacterXp((prev) => {
+      const current = prev[currentCharName] || {xp: 0, level: 1};
+      let newXP = current.xp + amount;
+      let newLevel = current.level;
+      
+      let nextLevelXP = Math.pow(newLevel, 3);
+      
+      while(newXP >= nextLevelXP) {
+        newXP -= nextLevelXP;
+        newLevel += 1;
+        nextLevelXP = Math.pow(newLevel, 3);
+      }
+      return {
+        ...prev, [selectedCharacter?.name]:{ xp: newXP, level: newLevel}
+      }
+    })
   };
-
+  
   // --- Skills ---
+  
   const handleAddSkill = () => {
+    if(!selectedCharacter){
+      alert("Please select a character first");
+      return;
+    }
     const name = prompt("Enter a new skill:");
     if (!name) return;
     const newSkill: Skill = {
@@ -96,27 +109,28 @@ const Dashboard: React.FC = () => {
       progress: 0,
       mastered: false,
     };
-    setSkills((prev) => [...prev, newSkill]);
+    setCharacterSkills((prev) => ({...prev, [currentCharName]:[...(prev[currentCharName] || []), newSkill], }));
   };
-
+  
   const handleProgressUpdate = (
     id: string,
     newProgress: number,
     mastered = false
   ) => {
-    setSkills((prev) =>
-      prev.map((s) =>
-        s.id === id ? { ...s, progress: newProgress, mastered } : s
-      )
-    );
-  };
+    setCharacterSkills((prev) => ({...prev, [currentCharName]: prev[currentCharName].map((s) => s.id === id ? {...s, progress: newProgress, mastered} : s)})
+    
+  );
+};
 
-  const handleDeleteSkill = (id: string) => {
-    if (!confirm("Are you sure you want to delete this skill?")) return;
-    setSkills((prev) => prev.filter((s) => s.id !== id));
-  };
+const handleDeleteSkill = (id: string) => {
+  if (!confirm("Are you sure you want to delete this skill?")) return;
+  setCharacterSkills((prev) => ({...prev, [currentCharName]: prev[currentCharName].filter((s) => s.id !== id)}));
+};
 
-  const xpPercent = (xp / XP_PER_LEVEL) * 100;
+const { xp, level } = characterXp[selectedCharacter?.name] || {xp:0, level: 1};
+const nextLevelXP = Math.pow(level, 3);
+const xpPercent = (xp / nextLevelXP) * 100;
+  const hp = characterHp[currentCharName] ?? MAX_HP;
 
   return (
     <div className="flex flex-col items-center justify-between min-h-screen bg-cyan-50 py-10 px-6">
@@ -199,7 +213,7 @@ const Dashboard: React.FC = () => {
         </button>
 
         <div className="flex flex-col gap-4">
-          {skills.map((skill) => (
+          {(characterSkills[currentCharName] || []).map((skill) => (
             <SkillItem
               key={skill.id}
               name={skill.name}
@@ -225,7 +239,7 @@ const Dashboard: React.FC = () => {
             Level: <span className="text-cyan-700">{level}</span>
           </div>
           <div className="text-gray-800 font-semibold">
-            XP: <span className="text-cyan-700">{xp}/{XP_PER_LEVEL}</span>
+            XP: <span className="text-cyan-700">{xp}/{nextLevelXP}</span>
           </div>
         </div>
 
