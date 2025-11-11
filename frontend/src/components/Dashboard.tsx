@@ -189,10 +189,10 @@ const Dashboard: React.FC = () => {
         </select>
         {/* animation */}
         {selectedCharacter && (
-          <div className="mt-4 text-center">
+          <div className="mt-4 text-center w-64 h-64 relative">
 
             {selectedCharacter?.animation && (
-              <video src={selectedCharacter.animation} autoPlay loop muted className="w-64 h-64 object-cover" aria-label={`${selectedCharacter.name} animation`} />
+              <video src={selectedCharacter.animation} autoPlay loop muted playsInline controls={false} className="w-64 h-64 object-cover" aria-label={`${selectedCharacter.name} animation`} />
 
             )}
             <p className="mt-2 font-bold">{selectedCharacter.name}</p>
