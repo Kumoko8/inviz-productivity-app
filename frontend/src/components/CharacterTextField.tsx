@@ -64,7 +64,7 @@ const CharacterTextField: React.FC<CharacterTextFieldProps> = ({ selectedCharact
 
   return (
     <div className="w-full max-w-md bg-white rounded-lg shadow-md p-4 border border-cyan-200">
-      <label className="block font-semibold mb-2">{selectedCharacter.name}'s story</label>
+      <label className="block font-semibold mb-2">notes</label>
       <textarea
         ref={textareaRef}
         value={text}
