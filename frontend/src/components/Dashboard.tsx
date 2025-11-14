@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import { auth, db } from "../firebase";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import SkillItem from "../components/SkillItem";
-import Characters from "../components/CharacterData";
+import Characters, {Character} from "../components/CharacterData";
 import CharacterTextField from "./CharacterTextField";
+
 
 interface Skill {
   id: string;
@@ -22,9 +23,11 @@ const Dashboard: React.FC = () => {
   const [selectedCharacter, setSelectedCharacter] = useState<any | null>(
     null
   );
+  const [showScrollButton, setScrollButton] =useState(false);
 
   const MAX_HP = 100;
 
+    
 
   // Load user data from Firestore
   useEffect(() => {
@@ -127,6 +130,17 @@ const Dashboard: React.FC = () => {
     if (!confirm("Are you sure you want to delete this skill?")) return;
     setCharacterSkills((prev) => ({ ...prev, [currentCharName]: prev[currentCharName].filter((s) => s.id !== id) }));
   };
+  //Scroll button
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrollButton(window.scrollY > 600);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  })
+
+  //Firestore Animations
+
 
   const { xp, level } = characterXp[selectedCharacter?.name] || { xp: 0, level: 1 };
   const nextLevelXP = Math.pow(level, 3);
@@ -188,6 +202,7 @@ const Dashboard: React.FC = () => {
           ))}
         </select>
         {/* animation */}
+        
         {selectedCharacter && (
           <div className="mt-4 text-center w-64 h-64 relative">
 
@@ -268,6 +283,12 @@ const Dashboard: React.FC = () => {
           </button>
         </div>
       </div>
+      {showScrollButton && (
+
+        <button onClick={() => window.scrollTo({top:250, behavior: "smooth"})} className="fixed bottom-6 right-6 bg-cyan-600 text-white p-3 rounded-full shadow-lg hover:bg-cyan-700 transition-opacity duration-300" aria-label="Scroll to top">
+          ^
+      </button>
+      )}
     </div>
   );
 };

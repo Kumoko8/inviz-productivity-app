@@ -1,8 +1,7 @@
 // src/pages/DashboardPage.tsx
 import React from "react";
 import Dashboard from "../components/Dashboard";
-import Name from "../components/EditableName"; // adjust the path if needed
-import EditableName from "../components/EditableName";
+import UploadVideo from "../components/UploadVideo";
 
 const DashboardPage: React.FC = () => {
   return (
