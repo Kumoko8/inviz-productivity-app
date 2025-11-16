@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { auth, db } from "../firebase";
+import { auth, db, storage } from "../firebase";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { getDownloadURL, ref } from "firebase/storage";
 import SkillItem from "../components/SkillItem";
-import Characters, {Character} from "../components/CharacterData";
+import { characters } from "./CharacterData";
 import CharacterTextField from "./CharacterTextField";
 
-
+async function loadAnimationUrl(animation: string) : Promise<string> {
+  const storageRef = ref(storage, animation);
+  return await getDownloadURL(storageRef);
+}
 interface Skill {
   id: string;
   name: string;
@@ -19,11 +23,11 @@ const Dashboard: React.FC = () => {
   const [characterHp, setCharacterHp] = useState<Record<string, number>>({});
   const [characterXp, setCharacterXp] = useState<Record<string, { xp: number, level: number }>>({});
   const [characterSkills, setCharacterSkills] = useState<Record<string, Skill[]>>({});
-  // const [skills, setSkills] = useState<Skill[]>([]);
   const [selectedCharacter, setSelectedCharacter] = useState<any | null>(
     null
   );
   const [showScrollButton, setScrollButton] =useState(false);
+  const [animationUrl, setAnimationUrl] = useState<string>("");
 
   const MAX_HP = 100;
 
@@ -140,6 +144,15 @@ const Dashboard: React.FC = () => {
   })
 
   //Firestore Animations
+  useEffect(() => {
+    if(!selectedCharacter) return;
+
+    async function fetchUrl() {
+      const url = await loadAnimationUrl(selectedCharacter.animation);
+      setAnimationUrl(url);
+    }
+    fetchUrl();
+  }, [selectedCharacter]);
 
 
   const { xp, level } = characterXp[selectedCharacter?.name] || { xp: 0, level: 1 };
@@ -190,12 +203,12 @@ const Dashboard: React.FC = () => {
           className="ml-2 border rounded px-2 py-1"
           value={selectedCharacter?.name || ""}
           onChange={(e) => {
-            const char = Characters.find((c) => c.name === e.target.value);
+            const char = characters.find((c) => c.name === e.target.value);
             setSelectedCharacter(char || null);
           }}
         >
           <option value="">Select...</option>
-          {Characters.map((c) => (
+          {characters.map((c) => (
             <option key={c.name} value={c.name}>
               {c.name}
             </option>
@@ -206,8 +219,8 @@ const Dashboard: React.FC = () => {
         {selectedCharacter && (
           <div className="mt-4 text-center w-64 h-64 relative">
 
-            {selectedCharacter?.animation && (
-              <video src={selectedCharacter.animation} autoPlay loop muted playsInline controls={false} className="w-64 h-64 object-cover" aria-label={`${selectedCharacter.name} animation`} />
+            {animationUrl && (
+              <video src={animationUrl} autoPlay loop muted playsInline controls={false} className="w-64 h-64 object-cover" aria-label={`${selectedCharacter.name} animation`} />
 
             )}
             <p className="mt-2 font-bold">{selectedCharacter.name}</p>
