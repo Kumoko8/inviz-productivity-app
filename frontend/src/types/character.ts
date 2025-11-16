@@ -13,10 +13,9 @@ export interface Skill {
 }
 
 export interface Character {
-  _id?: string;
-  name: string;
-  level: number;
-  xp: number;
-  userId?: string;     // owner (Realm user)
-  skills: Skill[];     // embedded list of skills
+    id: string;
+    name: string;
+    defaultAnimation?: string;
+    animation?: string;
+
 }
