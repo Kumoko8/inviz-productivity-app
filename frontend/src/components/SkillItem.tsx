@@ -30,7 +30,8 @@ const SkillItem: React.FC<SkillItemProps> = ({ name, progress, onProgressUpdate,
       <div className="w-full h-4 bg-gray-200 rounded">
         <div
           className="h-full bg-green-500 rounded transition-all"
-          style={{ width: `${progress}%` }}
+          
+          style={{ width: `${progress}%`, backgroundColor: progress >=100 ? "#EAB308" : "#22c55e" }}
         />
       </div>
       <button
