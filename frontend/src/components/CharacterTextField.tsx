@@ -9,6 +9,7 @@ interface CharacterTextFieldProps {
 const CharacterTextField: React.FC<CharacterTextFieldProps> = ({ selectedCharacter }) => {
   const user = auth.currentUser;
   const [text, setText] = useState("");
+   const [showNotes, setShowNotes] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -64,15 +65,25 @@ const CharacterTextField: React.FC<CharacterTextFieldProps> = ({ selectedCharact
 
   return (
     <div className="w-full max-w-md bg-white rounded-lg shadow-md p-4 border border-cyan-200">
-      <label className="block font-semibold mb-2">notes</label>
+      <button className="collapse-btn"
+      onClick={() => setShowNotes(prev => !prev)}>
+        {showNotes ? "hide" : ">"}
+      </button>
+
+          <label className="block font-semibold mb-2">notes</label>
+        {showNotes && (
+      <div> 
+
       <textarea
-        ref={textareaRef}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        rows={1}
-        className="w-full border rounded-md p-2 resize-none focus:outline-none focus:ring-2 focus:ring-cyan-400 overflow-hidden"
-        placeholder="Type your notes here..."
+      ref={textareaRef}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      rows={1}
+      className="w-full border rounded-md p-2 resize-none focus:outline-none focus:ring-2 focus:ring-cyan-400 overflow-hidden"
+      placeholder="Type your notes here..."
       />
+      </div>
+    )}
     </div>
   );
 };

@@ -6,7 +6,7 @@ import SkillItem from "../components/SkillItem";
 import { characters } from "./CharacterData";
 import CharacterTextField from "./CharacterTextField";
 
-async function loadAnimationUrl(animation: string) : Promise<string> {
+async function loadAnimationUrl(animation: string): Promise<string> {
   const storageRef = ref(storage, animation);
   return await getDownloadURL(storageRef);
 }
@@ -26,12 +26,13 @@ const Dashboard: React.FC = () => {
   const [selectedCharacter, setSelectedCharacter] = useState<any | null>(
     null
   );
-  const [showScrollButton, setScrollButton] =useState(false);
+  const [showScrollButton, setScrollButton] = useState(false);
   const [animationUrl, setAnimationUrl] = useState<string>("");
+  const [showSkills, setShowSkills] = useState(true);
 
   const MAX_HP = 100;
 
-    
+
 
   // Load user data from Firestore
   useEffect(() => {
@@ -117,7 +118,7 @@ const Dashboard: React.FC = () => {
       progress: 0,
       mastered: false,
     };
-    setCharacterSkills((prev) => ({ ...prev, [currentCharName]: [...(prev[currentCharName] || []), newSkill], }));
+    setCharacterSkills((prev) => ({ ...prev, [currentCharName]: [newSkill, ...(prev[currentCharName] || []) ], }));
   };
 
   const handleProgressUpdate = (
@@ -125,9 +126,13 @@ const Dashboard: React.FC = () => {
     newProgress: number,
     mastered = false
   ) => {
-    setCharacterSkills((prev) => ({ ...prev, [currentCharName]: prev[currentCharName].map((s) => s.id === id ? { ...s, progress: newProgress, mastered } : s) })
-
+    setCharacterSkills((prev) => 
+  
+    ({ 
+        ...prev, [currentCharName]: prev[currentCharName].map((s) => s.id === id ? { ...s, progress: newProgress, mastered } : s) })
+     
     );
+    
   };
 
   const handleDeleteSkill = (id: string) => {
@@ -145,7 +150,7 @@ const Dashboard: React.FC = () => {
 
   //Firestore Animations
   useEffect(() => {
-    if(!selectedCharacter) return;
+    if (!selectedCharacter) return;
 
     async function fetchUrl() {
       const url = await loadAnimationUrl(selectedCharacter.animation);
@@ -215,7 +220,7 @@ const Dashboard: React.FC = () => {
           ))}
         </select>
         {/* animation */}
-        
+
         {selectedCharacter && (
           <div className="mt-4 text-center w-64 h-64 relative">
 
@@ -232,13 +237,21 @@ const Dashboard: React.FC = () => {
       <CharacterTextField selectedCharacter={selectedCharacter} />
       {/* Skill Tracker */}
       <div className="w-full max-w-md bg-white rounded-lg shadow-md p-6 border border-cyan-200 mb-8">
-        <h2 className="text-2xl font-bold text-center text-cyan-700 mb-4">
+        <button className="collapse-btn"
+        onClick={() => setShowSkills(prev => !prev)}>
+          {showSkills ? "hide" : ">"}
+        </button>
+          
+          
+          <h2 className="text-2xl font-bold text-center text-cyan-700 mb-4">
           Skills
         </h2>
 
+        {showSkills && (
+          <div>
         <button
-          onClick={handleAddSkill}
-          className="mb-4 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+        onClick={handleAddSkill}
+        className="mb-4 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
         >
           + Add Skill
         </button>
@@ -246,17 +259,19 @@ const Dashboard: React.FC = () => {
         <div className="flex flex-col gap-4">
           {(characterSkills[currentCharName] || []).map((skill) => (
             <SkillItem
-              key={skill.id}
-              name={skill.name}
-              progress={skill.progress}
-              onProgressUpdate={(newProgress) =>
-                handleProgressUpdate(skill.id, newProgress)
-              }
-              onMaster={() => handleProgressUpdate(skill.id, 100, true)}
-              onDelete={() => handleDeleteSkill(skill.id)}
+            key={skill.id}
+            name={skill.name}
+            progress={skill.progress}
+            onProgressUpdate={(newProgress) =>
+              handleProgressUpdate(skill.id, newProgress)
+            }
+            onMaster={() => handleProgressUpdate(skill.id, 100, true)}
+            onDelete={() => handleDeleteSkill(skill.id)}
             />
           ))}
         </div>
+          </div>
+        )}
       </div>
 
       {/* XP Section */}
@@ -298,9 +313,9 @@ const Dashboard: React.FC = () => {
       </div>
       {showScrollButton && (
 
-        <button onClick={() => window.scrollTo({top:250, behavior: "smooth"})} className="fixed bottom-6 right-6 bg-cyan-600 text-white p-3 rounded-full shadow-lg hover:bg-cyan-700 transition-opacity duration-300" aria-label="Scroll to top">
+        <button onClick={() => window.scrollTo({ top: 250, behavior: "smooth" })} className="fixed bottom-6 right-6 bg-cyan-600 text-white p-3 rounded-full shadow-lg hover:bg-cyan-700 transition-opacity duration-300" aria-label="Scroll to top">
           ^
-      </button>
+        </button>
       )}
     </div>
   );
