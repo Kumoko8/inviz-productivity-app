@@ -25,8 +25,11 @@ export interface Character {
   name: string;
   defaultAnimation?: string;
   animation?: string;
+  xp: number;
+  level: number;
   hp: number;
   maxHp: number;
+  createdAt?: number | Date;
 
 }
 

@@ -6,7 +6,7 @@ import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 
 export default function App() {
-  const MAINTENANCE = true; // ← flip to false when fixed
+  const MAINTENANCE = false; // ← flip to false when fixed
 
   if (MAINTENANCE) {
     return (

@@ -1,166 +1,165 @@
-import React, { useState, useEffect } from "react";
-import { Prayer } from "../types/character";
+import React, { useEffect, useState } from "react";
+import { auth, db } from "../firebase";
 import {
-    getPrayers,
-    addPrayer,
-    updatePrayer
-} from "../services/prayerService";
-import { auth } from "../firebase";
+    collection,
+    addDoc,
+    getDocs,
+    deleteDoc,
+    doc,
+    updateDoc,
+} from "firebase/firestore";
+import { Prayer } from "../types/character";
 
-const colors = [
-    "#7dd3fc",
-    "#fda4af",
-    "#a5b4fc",
-    "#fcd34d",
-    "#86efac",
-    "#f9a8d4",
-    "#c4b5fd"
-];
-
-// simple contrast helper: returns black or white depending on background color
-function getContrastColor(hexColor: string) {
-    if (!hexColor) return "#000";
-    // strip #
-    const hex = hexColor.replace("#", "");
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    // relative luminance formula
-    const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-    return luminance > 0.6 ? "#000" : "#fff";
+interface Props {
+    characterId: string;
 }
 
-const PrayerBubble: React.FC = () => {
+const PrayerBubble: React.FC<Props> = ({ characterId }) => {
     const user = auth.currentUser;
-
-    const [open, setOpen] = useState(false);
+    const uid = user?.uid;
     const [prayers, setPrayers] = useState<Prayer[]>([]);
+    const [newPrayer, setNewPrayer] = useState("");
+    const [previewColor, setPreviewColor] = useState("#fff3b0"); // default light yellow
 
-    // For creating NEW prayers
-    const [text, setText] = useState("");
-    const [color, setColor] = useState(colors[0]);
-
-    // For EDITING an existing prayer
-    const [editingId, setEditingId] = useState<string | null>(null);
-    const [editingText, setEditingText] = useState("");
-    const [editingColor, setEditingColor] = useState(colors[0]);
-
-    // Load prayers from Firestore
+    // --------------------------
+    // Load prayers for this character
+    // --------------------------
     useEffect(() => {
-        if (!user) return;
-        getPrayers(user.uid).then(setPrayers);
-    }, [user]);
+        if (!uid || !characterId) return;
 
-    const handleSubmit = async () => {
-        if (!user) return;
+        const load = async () => {
+            const ref = collection(db, "users", uid, "characters", characterId, "prayers");
+            const snap = await getDocs(ref);
 
-        // Updating existing prayer
-        if (editingId) {
-            await updatePrayer(user.uid, editingId, {
-                text: editingText,
-                color: editingColor
-            });
-            // Adding NEW prayer
-        } else {
-            if (!text.trim()) return;
-            await addPrayer(user.uid, text, color);
-        }
+            const items: Prayer[] = snap.docs.map((d) => ({
+                id: d.id,
+                ...(d.data() as any),
+            }));
 
-        // Refresh list
-        const updated = await getPrayers(user.uid);
-        setPrayers(updated);
+            setPrayers(items);
+        };
 
-        // Reset fields
-        setText("");
-        setColor(colors[0]);
-        setEditingId(null);
-        setEditingText("");
-        setEditingColor(colors[0]);
+        load().catch(console.error);
+    }, [uid, characterId]);
+
+    // --------------------------
+    // Add a prayer
+    // --------------------------
+    const addPrayer = async () => {
+        if (!uid || !characterId || !newPrayer.trim()) return;
+
+        const ref = collection(db, "users", uid, "characters", characterId, "prayers");
+
+        const docRef = await addDoc(ref, {
+            text: newPrayer,
+            color: previewColor,
+            createdAt: Date.now(),
+        });
+
+        setPrayers((prev) => [
+            { id: docRef.id, text: newPrayer, color: previewColor },
+            ...prev,
+        ]);
+
+        setNewPrayer("");
     };
 
-    // Which text/color should the input be tied to?
-    const currentText = editingId ? editingText : text;
-    const currentColor = editingId ? editingColor : color;
-    const currentTextColor = getContrastColor(currentColor);
+    // --------------------------
+    // Update prayer color
+    // --------------------------
+    const updatePrayerColor = async (id: string, color: string) => {
+        if (!uid || !characterId) return;
 
+        const ref = doc(db, "users", uid, "characters", characterId, "prayers", id);
+        await updateDoc(ref, { color });
+
+        setPrayers((prev) =>
+            prev.map((p) => (p.id === id ? { ...p, color } : p))
+        );
+    };
+
+    // --------------------------
+    // Delete prayer
+    // --------------------------
+    const deletePrayer = async (id: string) => {
+        if (!uid || !characterId) return;
+
+        const ref = doc(db, "users", uid, "characters", characterId, "prayers", id);
+        await deleteDoc(ref);
+
+        setPrayers((prev) => prev.filter((p) => p.id !== id));
+    };
+
+    // --------------------------
+    // UI
+    // --------------------------
     return (
-        <div className="w-full max-w-md mt-6">
-            {/* Toggle button */}
-            <button
-                className="px-3 py-1 bg-purple-500 text-white rounded-md mb-3"
-                onClick={() => setOpen(!open)}
-            >
-                {open ? " Prayers ▾ " : "Prayers ▸"}
-            </button>
+        <div className="w-full max-w-md bg-white shadow-md rounded-lg border border-cyan-200 p-6 mb-8">
+            <h2 className="text-2xl font-bold text-center text-cyan-700 mb-4">
+                Prayers
+            </h2>
 
-            {open && (
-                <div className="p-4 border rounded-md bg-white shadow-md">
-                    {/* Input - textarea background changes instantly to selected color */}
-                    <textarea
-                        className="w-full border p-2 rounded"
-                        placeholder="Write your prayer..."
-                        value={currentText}
-                        onChange={(e) =>
-                            editingId ? setEditingText(e.target.value) : setText(e.target.value)
-                        }
-                        style={{
-                            background: currentColor,
-                            color: currentTextColor,
-                            transition: "background-color 150ms linear, color 150ms linear"
-                        }}
-                        rows={4}
-                    />
+            {/* New prayer input */}
+            <div className="flex flex-col gap-3 mb-4">
+                <input
+                    value={newPrayer}
+                    onChange={(e) => setNewPrayer(e.target.value)}
+                    placeholder="Enter prayer..."
+                    className="border rounded px-3 py-2"
+                    style={{ backgroundColor: previewColor }}
+                />
 
-                    {/* Color picker */}
-                    <div className="flex gap-2 my-2">
-                        {colors.map((c) => (
-                            <div
-                                key={c}
-                                onClick={() => {
-                                    // change the appropriate color state immediately
-                                    editingId ? setEditingColor(c) : setColor(c);
-                                }}
-                                className="w-6 h-6 rounded-full cursor-pointer border"
-                                style={{ background: c }}
-                            />
-                        ))}
-                    </div>
-
-                    {/* Add / Update button */}
-                    <div className="flex items-center gap-3">
+                {/* Color preview selectors */}
+                <div className="flex gap-2">
+                    {["#fff3b0", "#ffd6e0", "#caffbf", "#bde0fe"].map((c) => (
                         <button
-                            className="px-3 py-1 bg-cyan-500 text-white rounded"
-                            onClick={handleSubmit}
-                        >
-                            {editingId ? "Update Prayer" : "Add Prayer"}
-                        </button>
-
-                        {/* small preview bubble so user sees chosen color aside from background */}
-                        <div
-                            className="w-8 h-8 rounded-full shadow"
-                            style={{ background: currentColor }}
-                            aria-hidden
+                            key={c}
+                            onClick={() => setPreviewColor(c)}
+                            style={{ backgroundColor: c }}
+                            className="w-8 h-8 rounded-full border"
                         />
-                    </div>
-
-                    {/* Floating bubbles */}
-                    <div className="flex flex-wrap gap-3 mt-4">
-                        {prayers.map((p) => (
-                            <div
-                                key={p.id}
-                                onClick={() => {
-                                    setEditingId(p.id);
-                                    setEditingText(p.text);
-                                    setEditingColor(p.color);
-                                }}
-                                title={p.text}
-                                className="w-10 h-10 rounded-full cursor-pointer shadow prayer-float"
-                                style={{ background: p.color, animationDelay: `${(Math.random() * 2).toFixed(2)}s` }}
-                            />
-                        ))}
-                    </div>
+                    ))}
                 </div>
-            )}
+
+                <button
+                    onClick={addPrayer}
+                    className="px-3 py-2 bg-cyan-500 text-white rounded"
+                >
+                    Add Prayer
+                </button>
+            </div>
+
+            {/* Existing prayers */}
+            <div className="flex flex-col gap-3">
+                {prayers.map((p) => (
+                    <div
+                        key={p.id}
+                        className="p-3 rounded shadow flex items-center justify-between"
+                        style={{ backgroundColor: p.color }}
+                    >
+                        <span>{p.text}</span>
+
+                        <div className="flex items-center gap-2">
+                            {/* Color bubbles */}
+                            {["#fff3b0", "#ffd6e0", "#caffbf", "#bde0fe"].map((c) => (
+                                <button
+                                    key={c}
+                                    onClick={() => updatePrayerColor(p.id, c)}
+                                    className="w-5 h-5 rounded-full border"
+                                    style={{ backgroundColor: c }}
+                                />
+                            ))}
+
+                            <button
+                                onClick={() => deletePrayer(p.id)}
+                                className="text-red-600 font-bold"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };
