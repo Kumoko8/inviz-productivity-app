@@ -1,10 +1,4 @@
-interface SkillItemProps {
-  name: string;
-  progress: number;
-  onProgressUpdate: (newProgress: number) => void;
-  onMaster: () => void;
-  onDelete: () => void;
-}
+import { SkillItemProps } from "../types/character";
 
 const SkillItem: React.FC<SkillItemProps> = ({ name, progress, onProgressUpdate, onMaster, onDelete }) => {
   const handleClick = () => {

@@ -2,20 +2,17 @@ import React, { useState, useEffect } from "react";
 import { auth, db, storage } from "../firebase";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { getDownloadURL, ref } from "firebase/storage";
+import { Skill } from "../types/character";
 import SkillItem from "../components/SkillItem";
-import { characters } from "./CharacterData";
+import { characterData } from "./CharacterData";
 import CharacterTextField from "./CharacterTextField";
+import PrayerBubble from "./PrayerBubble";
 
 async function loadAnimationUrl(animation: string): Promise<string> {
   const storageRef = ref(storage, animation);
   return await getDownloadURL(storageRef);
 }
-interface Skill {
-  id: string;
-  name: string;
-  progress: number;
-  mastered: boolean;
-}
+
 
 const Dashboard: React.FC = () => {
   const user = auth.currentUser;
@@ -29,6 +26,7 @@ const Dashboard: React.FC = () => {
   const [showScrollButton, setScrollButton] = useState(false);
   const [animationUrl, setAnimationUrl] = useState<string>("");
   const [showSkills, setShowSkills] = useState(true);
+ 
 
   const MAX_HP = 100;
 
@@ -118,7 +116,7 @@ const Dashboard: React.FC = () => {
       progress: 0,
       mastered: false,
     };
-    setCharacterSkills((prev) => ({ ...prev, [currentCharName]: [newSkill, ...(prev[currentCharName] || []) ], }));
+    setCharacterSkills((prev) => ({ ...prev, [currentCharName]: [newSkill, ...(prev[currentCharName] || [])], }));
   };
 
   const handleProgressUpdate = (
@@ -126,13 +124,14 @@ const Dashboard: React.FC = () => {
     newProgress: number,
     mastered = false
   ) => {
-    setCharacterSkills((prev) => 
-  
-    ({ 
-        ...prev, [currentCharName]: prev[currentCharName].map((s) => s.id === id ? { ...s, progress: newProgress, mastered } : s) })
-     
+    setCharacterSkills((prev) =>
+
+    ({
+      ...prev, [currentCharName]: prev[currentCharName].map((s) => s.id === id ? { ...s, progress: newProgress, mastered } : s)
+    })
+
     );
-    
+
   };
 
   const handleDeleteSkill = (id: string) => {
@@ -159,6 +158,7 @@ const Dashboard: React.FC = () => {
     fetchUrl();
   }, [selectedCharacter]);
 
+  
 
   const { xp, level } = characterXp[selectedCharacter?.name] || { xp: 0, level: 1 };
   const nextLevelXP = Math.pow(level, 3);
@@ -200,6 +200,7 @@ const Dashboard: React.FC = () => {
           />
         </div>
       </div>
+      <PrayerBubble/>
 
       {/* Character Selector */}
       <div className="mt-4">
@@ -208,12 +209,12 @@ const Dashboard: React.FC = () => {
           className="ml-2 border rounded px-2 py-1"
           value={selectedCharacter?.name || ""}
           onChange={(e) => {
-            const char = characters.find((c) => c.name === e.target.value);
+            const char = characterData.find((c) => c.name === e.target.value);
             setSelectedCharacter(char || null);
           }}
         >
           <option value="">Select...</option>
-          {characters.map((c) => (
+          {characterData.map((c) => (
             <option key={c.name} value={c.name}>
               {c.name}
             </option>
@@ -222,7 +223,7 @@ const Dashboard: React.FC = () => {
         {/* animation */}
 
         {selectedCharacter && (
-          <div className="mt-4 text-center w-64 h-64 relative">
+          <div className="mt-4 text-center w-64 h-64 relative ">
 
             {animationUrl && (
               <video src={animationUrl} autoPlay loop muted playsInline controls={false} className="w-64 h-64 object-cover" aria-label={`${selectedCharacter.name} animation`} />
@@ -238,38 +239,38 @@ const Dashboard: React.FC = () => {
       {/* Skill Tracker */}
       <div className="w-full max-w-md bg-white rounded-lg shadow-md p-6 border border-cyan-200 mb-8">
         <button className="collapse-btn"
-        onClick={() => setShowSkills(prev => !prev)}>
-          {showSkills ? "hide" : ">"}
+          onClick={() => setShowSkills(prev => !prev)}>
+          {showSkills ? "▾" : "▸"}
         </button>
-          
-          
-          <h2 className="text-2xl font-bold text-center text-cyan-700 mb-4">
+
+
+        <h2 className="text-2xl font-bold text-center text-cyan-700 mb-4">
           Skills
         </h2>
 
         {showSkills && (
           <div>
-        <button
-        onClick={handleAddSkill}
-        className="mb-4 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-        >
-          + Add Skill
-        </button>
+            <button
+              onClick={handleAddSkill}
+              className="mb-4 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              + Add Skill
+            </button>
 
-        <div className="flex flex-col gap-4">
-          {(characterSkills[currentCharName] || []).map((skill) => (
-            <SkillItem
-            key={skill.id}
-            name={skill.name}
-            progress={skill.progress}
-            onProgressUpdate={(newProgress) =>
-              handleProgressUpdate(skill.id, newProgress)
-            }
-            onMaster={() => handleProgressUpdate(skill.id, 100, true)}
-            onDelete={() => handleDeleteSkill(skill.id)}
-            />
-          ))}
-        </div>
+            <div className="flex flex-col gap-4">
+              {(characterSkills[currentCharName] || []).map((skill) => (
+                <SkillItem
+                  key={skill.id}
+                  name={skill.name}
+                  progress={skill.progress}
+                  onProgressUpdate={(newProgress) =>
+                    handleProgressUpdate(skill.id, newProgress)
+                  }
+                  onMaster={() => handleProgressUpdate(skill.id, 100, true)}
+                  onDelete={() => handleDeleteSkill(skill.id)}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>
