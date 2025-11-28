@@ -1,23 +1,24 @@
 .two-column-layout {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    padding: 1rem;
-  }
-  
-  .two-column-layout__left,
-  .two-column-layout__right {
-    background-color: #f4f4f4;
-    padding: 1rem;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-  }
-  
-  .two-column-layout__left {
-    background-color: #e6f7ff; /* Light blue for the left column */
-  }
-  
-  .two-column-layout__right {
-    background-color: #fffbe6; /* Light yellow for the right column */
-  }
-  
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.two-column-layout__left,
+.two-column-layout__right {
+  background-color: #f4f4f4;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+.two-column-layout__left {
+  background-color: #e6f7ff;
+  /* Light blue for the left column */
+}
+
+.two-column-layout__right {
+  background-color: #fffbe6;
+  /* Light yellow for the right column */
+}

@@ -67,7 +67,7 @@ const CharacterTextField: React.FC<CharacterTextFieldProps> = ({ selectedCharact
     <div className="w-full max-w-md bg-white rounded-lg shadow-md p-4 border border-cyan-200">
       <button className="collapse-btn"
       onClick={() => setShowNotes(prev => !prev)}>
-        {showNotes ? "hide" : ">"}
+        {showNotes ? "▾" : "▸"}
       </button>
 
           <label className="block font-semibold mb-2">notes</label>
