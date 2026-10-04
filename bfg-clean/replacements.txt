@@ -1,0 +1,5 @@
+# BFG replace-text file
+# Format: exact-text==>replacement
+# Replace the exposed Firebase web API key with a placeholder
+AIzaSyBV143OBBajnbZWj-PZPYq0NzWiCqRYp90==>[REDACTED_FIREBASE_API_KEY]
+# If you have other exact strings to replace, add them here (be careful)

@@ -1,0 +1,9 @@
+# Exact repo paths (one per line) to remove from history
+frontend/src/firebase.ts
+frontend/.env
+frontend/.env.local
+.env
+# Remove built assets that contain the client API key (adjust pattern if filenames differ)
+frontend/build/assets/index-Be-tNnFB.js
+# If you previously committed any service-account JSONs, add their paths here
+# e.g. server/service-account.json

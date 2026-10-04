@@ -5,3 +5,5 @@ build
 dist
 package-lock.json
 .env.local
+.secrets/
+frontend/.env.local

@@ -1,9 +1,14 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Header from "./components/Header";
 import Home from "../src/pages/Home";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import Dashboard from "./pages/Dashboard";
+
+const About = lazy(() => import("./pages/About"));
+const Services = lazy(() => import("./pages/Services"));
+const Contact = lazy(() => import("./pages/Contact"));
+const Login = lazy(() => import("./pages/Login"));
+const Signup = lazy(() => import("./pages/Signup"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
 
 export default function App() {
   const MAINTENANCE = false; // ← flip to false when fixed
@@ -28,19 +33,35 @@ export default function App() {
       </div>
     );
   }
-  
+
   return (
     <Router>
       <Header />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-      </Routes>
-    </Router>
+      <Suspense fallback={<div role="status" className="p-4 text-center">Loading...</div>}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/services" element={<Services />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Routes>
+      </Suspense>
+    </Router> 
   );
 }
 
 
-//export default App;
+//rotated API Key 12-1
+//next figure out Google Auth settings
+//Google Auth complete
+//firestore rules updated to require auth
+//some kind of authentication error remains(done)
+//fixed firestore rules(done)
+//edit Character data
+//edit Firebase storage
+//edit dashboard to load from firestore
+//set Amy animation and other changed backgrounds
+//test and match firestore documents
+

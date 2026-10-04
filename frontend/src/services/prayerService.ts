@@ -2,6 +2,7 @@ import { db } from "../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { v4 as uuidv4 } from "uuid";
 import { Prayer } from "../types/character";
+import type { PrayOrbGroup } from "../components/focus/focusOrbUtils";
 
 // Firestore path helper — keeps everything consistent
 function prayerRef(userId: string) {
@@ -58,4 +59,58 @@ export async function updatePrayer(
     );
 
     await setDoc(ref, { prayers: updated }, { merge: true });
+}
+
+// ─── Prayer Requests (per-character ongoing requests with XP/level) ──────────
+
+export interface PrayerRequest {
+    id: string;
+    text: string;
+    startDate: number; // epoch ms
+    progress: number;  // 0–100
+    level: number;     // starts at 1
+}
+
+function prayerRequestsRef(userId: string, characterId: string) {
+    return doc(db, "users", userId, "prayerRequests", characterId);
+}
+
+export async function loadPrayerRequests(
+    userId: string,
+    characterId: string
+): Promise<PrayerRequest[]> {
+    const snap = await getDoc(prayerRequestsRef(userId, characterId));
+    if (!snap.exists()) return [];
+    return (snap.data().requests as PrayerRequest[]) ?? [];
+}
+
+export async function savePrayerRequests(
+    userId: string,
+    characterId: string,
+    requests: PrayerRequest[]
+): Promise<void> {
+    await setDoc(prayerRequestsRef(userId, characterId), { requests }, { merge: true });
+}
+
+// ─── Prayer Orb Groups (collapsed clusters of prayer/drawing orbs) ──────────
+
+function prayerOrbGroupsRef(userId: string, characterId: string) {
+    return doc(db, "users", userId, "prayerOrbGroups", characterId);
+}
+
+export async function loadPrayerOrbGroups(
+    userId: string,
+    characterId: string
+): Promise<PrayOrbGroup[]> {
+    const snap = await getDoc(prayerOrbGroupsRef(userId, characterId));
+    if (!snap.exists()) return [];
+    return (snap.data().groups as PrayOrbGroup[]) ?? [];
+}
+
+export async function savePrayerOrbGroups(
+    userId: string,
+    characterId: string,
+    groups: PrayOrbGroup[]
+): Promise<void> {
+    await setDoc(prayerOrbGroupsRef(userId, characterId), { groups }, { merge: true });
 }

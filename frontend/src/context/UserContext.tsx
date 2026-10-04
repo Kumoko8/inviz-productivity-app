@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { onAuthStateChanged, User, getAuth } from "firebase/auth";
-import { auth } from "../firebase"; // make sure your firebase config exports 'auth'
+import type { User } from "firebase/auth";
 
 interface UserContextType {
   user: User | null;
@@ -20,12 +19,26 @@ export const UserProvider: React.FC<Props> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-    });
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
 
-    return () => unsubscribe();
+    void Promise.all([import("firebase/auth"), import("../firebase")])
+      .then(([{ onAuthStateChanged }, { auth }]) => {
+        if (cancelled) return;
+        unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+          setUser(currentUser);
+          setLoading(false);
+        });
+      })
+      .catch((error) => {
+        console.error("Failed to initialize authentication", error);
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, []);
 
   return <UserContext.Provider value={{ user, loading }}>{children}</UserContext.Provider>;

@@ -1,3 +1,107 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* XP bar animations */
+@keyframes xp-glow {
+	0% {
+		box-shadow: 0 0 0px rgba(255, 255, 255, 0);
+		transform: scale(1);
+	}
+
+	50% {
+		box-shadow: 0 0 28px rgba(255, 255, 255, 0.98);
+		transform: scale(1.02);
+	}
+
+	100% {
+		box-shadow: 0 0 0px rgba(255, 255, 255, 0);
+		transform: scale(1);
+	}
+}
+
+@keyframes sparkle-fade {
+	0% {
+		opacity: 0;
+		transform: translateY(0) scale(0.6);
+	}
+
+	10% {
+		opacity: 1;
+		transform: translateY(-4px) scale(1.2);
+	}
+
+	60% {
+		opacity: 1;
+		transform: translateY(-10px) scale(1);
+	}
+
+	100% {
+		opacity: 0;
+		transform: translateY(-22px) scale(0.3);
+	}
+}
+
+.xp-glow {
+	animation: xp-glow 900ms cubic-bezier(.2, .9, .2, 1);
+	will-change: box-shadow, transform;
+}
+
+@keyframes xp-periodic {
+	0% {
+		box-shadow: 0 0 0px rgba(255, 255, 255, 0);
+		transform: scale(1);
+	}
+
+	6% {
+		box-shadow: 0 0 28px rgba(255, 255, 255, 0.95);
+		transform: scale(1.03);
+	}
+
+	12% {
+		box-shadow: 0 0 0px rgba(255, 255, 255, 0);
+		transform: scale(1);
+	}
+
+	100% {
+		box-shadow: 0 0 0px rgba(255, 255, 255, 0);
+		transform: scale(1);
+	}
+}
+
+.periodic-xp-glow {
+	animation: xp-periodic 4500ms ease-in-out infinite;
+	will-change: box-shadow, transform;
+}
+
+.xp-sparkle {
+	position: absolute;
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 1), rgba(255, 245, 200, 0.8));
+	opacity: 0;
+	animation: sparkle-fade 1100ms ease-out forwards;
+	pointer-events: none;
+	z-index: 30;
+	bottom: 6px;
+	box-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
+	filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.12));
+	mix-blend-mode: screen;
+}
+
+.xp-color-cyan {
+	background-color: #06b6d4;
+}
+
+.xp-color-yellow {
+	background-color: #f59e0b;
+}
+
+.xp-color-green {
+	background-color: #16a34a;
+}
+
+.xp-color-magenta {
+	background-color: #d946ef;
+}

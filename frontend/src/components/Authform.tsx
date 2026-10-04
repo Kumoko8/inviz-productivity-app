@@ -26,7 +26,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ isSignup }) => {
       }
       navigate("/dashboard"); // ✅ Redirect after login/signup
     } catch (err: any) {
-      setError(err.message);
+      // Log full error for debugging and show a clearer message in the UI
+      console.error("Auth error:", err);
+      const code = err?.code || "unknown";
+      const message = err?.message || "Authentication failed";
+      setError(`${code}: ${message}`);
     }
   };
 
