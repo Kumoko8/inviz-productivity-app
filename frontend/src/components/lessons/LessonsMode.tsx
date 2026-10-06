@@ -3,7 +3,7 @@ import { LESSON_TOPICS, Lesson, LessonTopic } from "./lessonsData";
 import LessonViewer from "./LessonViewer";
 import CreateLessonForm from "./CreateLessonForm";
 import { useStorageUrl } from "../../hooks/useLessonImages";
-import { loadLessons, type FirestoreLesson } from "../../services/lessonService";
+import { loadLessons, deleteLesson, type FirestoreLesson } from "../../services/lessonService";
 import { useUser } from "../../context/UserContext";
 
 interface Props {
@@ -28,6 +28,18 @@ const LessonsMode: React.FC<Props> = ({ onClose }) => {
     const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
     const [openLesson, setOpenLesson] = useState<Lesson | null>(null);
     const [showCreate, setShowCreate] = useState(false);
+    const [editLesson, setEditLesson] = useState<Lesson | null>(null);
+
+    const handleDelete = async (lesson: Lesson) => {
+        if (!user || !window.confirm(`Delete "${lesson.title}"? This cannot be undone.`)) return;
+        try {
+            await deleteLesson(user.uid, lesson);
+            refresh();
+        } catch (e) {
+            console.error(e);
+            window.alert("Could not delete the lesson.");
+        }
+    };
 
     const refresh = useCallback(() => {
         if (!user) { setLoading(false); return; }
@@ -144,11 +156,23 @@ const LessonsMode: React.FC<Props> = ({ onClose }) => {
                                 lesson={lesson}
                                 topic={topicMeta(lesson.topic)}
                                 onOpen={() => setOpenLesson(lesson)}
+                                onEdit={user ? () => setEditLesson(lesson) : undefined}
+                                onDelete={user ? () => handleDelete(lesson) : undefined}
                             />
                         ))}
                     </div>
                 )}
             </div>
+
+            {editLesson && (
+                <CreateLessonForm
+                    key={editLesson.id}
+                    lesson={editLesson}
+                    existingTopics={topics}
+                    onCreated={() => { setEditLesson(null); refresh(); }}
+                    onCancel={() => setEditLesson(null)}
+                />
+            )}
 
             {showCreate && (
                 <CreateLessonForm
@@ -166,14 +190,17 @@ const LessonCard: React.FC<{
     lesson: Lesson;
     topic: LessonTopic | null;
     onOpen: () => void;
-}> = ({ lesson, topic, onOpen }) => {
+    onEdit?: () => void;
+    onDelete?: () => void;
+}> = ({ lesson, topic, onOpen, onEdit, onDelete }) => {
     const thumbPath = lesson.thumbnailPath ?? lesson.pages[0]?.storagePath ?? "";
     const { url: thumbUrl, loading: thumbLoading } = useStorageUrl(thumbPath);
 
     return (
+        <div className="relative group">
         <button
             onClick={onOpen}
-            className="group text-left bg-gray-800 rounded-xl overflow-hidden border border-gray-700 hover:border-gray-500 transition shadow-md hover:shadow-lg"
+            className="w-full text-left bg-gray-800 rounded-xl overflow-hidden border border-gray-700 hover:border-gray-500 transition shadow-md hover:shadow-lg"
         >
             {/* Thumbnail */}
             <div className="aspect-video w-full bg-gray-700 overflow-hidden relative flex items-center justify-center">
@@ -214,6 +241,17 @@ const LessonCard: React.FC<{
                 </p>
             </div>
         </button>
+        {(onEdit || onDelete) && (
+            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition">
+                {onEdit && (
+                    <button onClick={onEdit} title="Edit lesson" className="w-7 h-7 rounded-full bg-black/70 hover:bg-black text-white text-xs">✎</button>
+                )}
+                {onDelete && (
+                    <button onClick={onDelete} title="Delete lesson" className="w-7 h-7 rounded-full bg-black/70 hover:bg-red-600 text-white text-xs">🗑</button>
+                )}
+            </div>
+        )}
+        </div>
     );
 };
 
