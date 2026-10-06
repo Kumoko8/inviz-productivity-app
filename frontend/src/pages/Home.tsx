@@ -33,7 +33,7 @@ const Home: React.FC = () => {
         <Link
           to="/signup"
           className="px-6 py-3 rounded-lg font-semibold text-white hover:bg-magenta-400 transition-colors duration-300 shadow-md"
-          style={{ backgroundColor: colors[1] }}
+          style={{ backgroundColor: colors[3] }}
         >
           Sign Up
         </Link>
