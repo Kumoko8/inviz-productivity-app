@@ -13,7 +13,7 @@ import {
     type DocumentData,
 } from "firebase/firestore";
 import { ref, uploadBytes, deleteObject } from "firebase/storage";
-import type { Lesson, LessonPage } from "../components/lessons/lessonsData";
+import type { CustomSlideSettings, Lesson, LessonPage } from "../components/lessons/lessonsData";
 
 function lessonsRef(uid: string) {
     return collection(db, "users", uid, "lessons");
@@ -45,6 +45,7 @@ export interface NewLessonInput {
     description?: string;
     topic: string;
     captions: string[];
+    customSlides?: (CustomSlideSettings | undefined)[];
     files: File[];
 }
 
@@ -76,7 +77,12 @@ export async function createLesson(
         const path = `${folder}/${String(i + 1).padStart(2, "0")}_${suffix}.${ext}`;
         await uploadBytes(ref(storage, path), file);
         const caption = captions[i]?.trim();
-        pages.push(caption ? { storagePath: path, caption } : { storagePath: path });
+        const customSlide = input.customSlides?.[i];
+        pages.push({
+            storagePath: path,
+            ...(caption ? { caption } : {}),
+            ...(customSlide ? { customSlide } : {}),
+        });
         onProgress?.({ uploaded: i + 1, total: files.length });
     }
 
@@ -98,6 +104,7 @@ export interface EditPageInput {
     /** New image to upload */
     file?: File;
     caption?: string;
+    customSlide?: CustomSlideSettings;
 }
 
 export interface UpdateLessonInput {
@@ -139,7 +146,11 @@ export async function updateLesson(
         }
         if (!path) continue;
         const caption = p.caption?.trim();
-        pages.push(caption ? { storagePath: path, caption } : { storagePath: path });
+        pages.push({
+            storagePath: path,
+            ...(caption ? { caption } : {}),
+            ...(p.customSlide ? { customSlide: p.customSlide } : {}),
+        });
     }
 
     const description = input.description?.trim();

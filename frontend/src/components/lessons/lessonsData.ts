@@ -7,6 +7,15 @@ export interface LessonPage {
     storagePath: string;
     /** Optional caption shown below the image */
     caption?: string;
+    /** Source content for custom slides, allowing them to be edited after saving. */
+    customSlide?: CustomSlideSettings;
+}
+
+export interface CustomSlideSettings {
+    text: string;
+    background: string;
+    textColor: string;
+    fontSize: number;
 }
 
 export interface Lesson {

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useUser } from "../../context/UserContext";
 import SlideEditor from "./SlideEditor";
 import { useStorageUrl } from "../../hooks/useLessonImages";
-import type { Lesson } from "./lessonsData";
+import type { CustomSlideSettings, Lesson } from "./lessonsData";
 import { createLesson, updateLesson, type UploadProgress } from "../../services/lessonService";
 
 interface Props {
@@ -23,6 +23,7 @@ interface PageItem {
     /** Newly added image, uploaded on submit */
     file?: File;
     caption: string;
+    customSlide?: CustomSlideSettings;
 }
 
 let keyCounter = 0;
@@ -55,6 +56,7 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
     const [progress, setProgress] = useState<UploadProgress>({ uploaded: 0, total: 0 });
     const [error, setError] = useState<string | null>(null);
     const [showSlideEditor, setShowSlideEditor] = useState(false);
+    const [editingSlideIndex, setEditingSlideIndex] = useState<number | null>(null);
 
     const topic = mode === "new" ? sanitizeSegment(newTopic) : topicId;
 
@@ -99,7 +101,12 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
                         title,
                         description,
                         topic,
-                        pages: items.map(it => ({ storagePath: it.storagePath, file: it.file, caption: it.caption })),
+                        pages: items.map(it => ({
+                            storagePath: it.storagePath,
+                            file: it.file,
+                            caption: it.caption,
+                            customSlide: it.customSlide,
+                        })),
                     },
                     setProgress
                 );
@@ -111,6 +118,7 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
                         description,
                         topic,
                         captions: items.map(it => it.caption),
+                        customSlides: items.map(it => it.customSlide),
                         files: items.map(it => it.file!),
                     },
                     setProgress
@@ -209,7 +217,10 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
                         </label>
                         <button
                             type="button"
-                            onClick={() => setShowSlideEditor(true)}
+                            onClick={() => {
+                                setEditingSlideIndex(null);
+                                setShowSlideEditor(true);
+                            }}
                             className="mt-2 w-full py-2 border border-yellow-400/40 rounded-xl text-yellow-300 hover:bg-yellow-400/10 transition text-sm"
                         >
                             ✎ Create custom slide
@@ -232,6 +243,20 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
                                             />
                                         </div>
                                         <div className="flex flex-col gap-0.5 flex-shrink-0">
+                                            {it.customSlide && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setEditingSlideIndex(i);
+                                                        setShowSlideEditor(true);
+                                                    }}
+                                                    disabled={uploading}
+                                                    aria-label={`Edit custom slide ${i + 1}`}
+                                                    className="text-yellow-300 hover:text-yellow-200 text-xs px-1"
+                                                >
+                                                    Edit
+                                                </button>
+                                            )}
                                             <button onClick={() => moveItem(i, -1)} disabled={i === 0} className="text-gray-400 hover:text-white disabled:opacity-20 text-xs px-1">▲</button>
                                             <button onClick={() => moveItem(i, 1)} disabled={i === items.length - 1} className="text-gray-400 hover:text-white disabled:opacity-20 text-xs px-1">▼</button>
                                             <button onClick={() => removeItem(i)} className="text-red-400 hover:text-red-300 text-xs px-1">✕</button>
@@ -270,9 +295,21 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
             </div>
             {showSlideEditor && (
                 <SlideEditor
-                    onCancel={() => setShowSlideEditor(false)}
-                    onSave={file => {
-                        addFiles([file]);
+                    key={editingSlideIndex === null ? "new-slide" : `edit-slide-${items[editingSlideIndex]?.key}`}
+                    initialValue={editingSlideIndex === null ? undefined : items[editingSlideIndex]?.customSlide}
+                    onCancel={() => {
+                        setEditingSlideIndex(null);
+                        setShowSlideEditor(false);
+                    }}
+                    onSave={(file, customSlide) => {
+                        if (editingSlideIndex === null) {
+                            setItems(prev => [...prev, { key: nextKey(), file, caption: "", customSlide }]);
+                        } else {
+                            setItems(prev => prev.map((item, index) =>
+                                index === editingSlideIndex ? { ...item, file, customSlide } : item
+                            ));
+                        }
+                        setEditingSlideIndex(null);
                         setShowSlideEditor(false);
                     }}
                 />

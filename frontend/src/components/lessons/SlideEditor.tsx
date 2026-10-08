@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
+import type { CustomSlideSettings } from "./lessonsData";
 
 interface Props {
-    onSave: (file: File) => void;
+    initialValue?: CustomSlideSettings;
+    onSave: (file: File, settings: CustomSlideSettings) => void;
     onCancel: () => void;
 }
 
@@ -56,12 +58,12 @@ function drawSlide(
     lines.forEach((l, i) => ctx.fillText(l, W / 2, startY + i * lineHeight, maxWidth));
 }
 
-const SlideEditor: React.FC<Props> = ({ onSave, onCancel }) => {
+const SlideEditor: React.FC<Props> = ({ initialValue, onSave, onCancel }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [text, setText] = useState("");
-    const [bg, setBg] = useState(BACKGROUNDS[0]);
-    const [color, setColor] = useState(TEXT_COLORS[0]);
-    const [size, setSize] = useState(SIZES[1].px);
+    const [text, setText] = useState(initialValue?.text ?? "");
+    const [bg, setBg] = useState(initialValue?.background ?? BACKGROUNDS[0]);
+    const [color, setColor] = useState(initialValue?.textColor ?? TEXT_COLORS[0]);
+    const [size, setSize] = useState(initialValue?.fontSize ?? SIZES[1].px);
 
     useEffect(() => {
         if (canvasRef.current) drawSlide(canvasRef.current, text, bg, color, size);
@@ -72,7 +74,10 @@ const SlideEditor: React.FC<Props> = ({ onSave, onCancel }) => {
         if (!canvas || !text.trim()) return;
         canvas.toBlob(blob => {
             if (!blob) return;
-            onSave(new File([blob], `slide-${Date.now()}.png`, { type: "image/png" }));
+            onSave(
+                new File([blob], `slide-${Date.now()}.png`, { type: "image/png" }),
+                { text, background: bg, textColor: color, fontSize: size }
+            );
         }, "image/png");
     };
 
@@ -83,7 +88,9 @@ const SlideEditor: React.FC<Props> = ({ onSave, onCancel }) => {
         <div className="fixed inset-0 z-[70] bg-black/80 flex items-center justify-center p-4">
             <div className="w-full max-w-2xl bg-gray-900 rounded-2xl border border-gray-700 shadow-xl flex flex-col max-h-[95vh]">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700">
-                    <h3 className="text-white font-bold text-lg">Create Custom Slide</h3>
+                    <h3 className="text-white font-bold text-lg">
+                        {initialValue ? "Edit Custom Slide" : "Create Custom Slide"}
+                    </h3>
                     <button onClick={onCancel} className="text-gray-400 hover:text-white text-xl">✕</button>
                 </div>
 
@@ -144,7 +151,7 @@ const SlideEditor: React.FC<Props> = ({ onSave, onCancel }) => {
                         disabled={!text.trim()}
                         className="w-full py-2.5 bg-yellow-600/80 hover:bg-yellow-500/90 text-white rounded-xl font-bold transition-colors disabled:opacity-30"
                     >
-                        Save Slide
+                        {initialValue ? "Save Slide Changes" : "Save Slide"}
                     </button>
                 </div>
             </div>
