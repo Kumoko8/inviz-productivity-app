@@ -66,6 +66,7 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
     const [selectedTile, setSelectedTile] = useState<{ char: string; meaning: string; color: string; textColor: string } | null>(null);
 
     const [goalListOpen, setGoalListOpen] = useState(true);
+    const [goalsExpanded, setGoalsExpanded] = useState(false);
     const [groups, setGroups] = useState<GoalGroup[]>(() => {
         try { const s = localStorage.getItem('kd-goal-groups'); return s ? JSON.parse(s) : []; } catch { return []; }
     });
@@ -646,10 +647,10 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
             </div>
 
             {/* Main play area: flex-col on mobile, flex-row on desktop */}
-            <div className="flex flex-col lg:flex-row flex-1 gap-3 px-3 overflow-y-auto lg:overflow-hidden w-full max-w-3xl lg:items-start">
+            <div className="flex flex-col lg:flex-row flex-1 min-h-0 gap-3 px-3 overflow-y-auto w-full max-w-3xl lg:items-start">
 
                 {/* Left column: target chip + canvas + palette */}
-                <div className="flex flex-col items-center flex-shrink-0">
+                <div className={`flex-col items-center flex-shrink-0 ${goalsExpanded ? 'hidden' : 'flex'}`}>
 
                     {/* Target chip */}
                     {targetDef && (
@@ -786,7 +787,9 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
                 </div>
 
                 {/* Desktop sidebar — right column (lg+) */}
-                <div className="hidden lg:flex flex-col flex-shrink-0 self-stretch overflow-hidden w-48">
+                <div className={goalsExpanded
+                    ? 'flex flex-col flex-1 min-h-0 w-full overflow-hidden'
+                    : 'hidden lg:flex flex-col flex-shrink-0 lg:sticky lg:top-0 lg:self-start lg:h-full overflow-hidden w-48'}>
                     <div className="flex flex-col items-center gap-2 p-3 mb-2 rounded-2xl border border-gray-800 bg-gray-900/80 text-center">
                         <span className="text-xs text-gray-500 uppercase tracking-widest">Selected Kanji</span>
                         {selectedTile ? (
@@ -806,6 +809,13 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
                     <div className="flex items-center gap-1 pt-1 mb-1">
                         <span className="text-xs text-gray-600 uppercase tracking-widest flex-1">Goals</span>
                         <button
+                            onClick={() => { setGoalsExpanded(e => !e); setGoalListOpen(true); }}
+                            className="text-xs px-2 h-6 rounded text-gray-400 hover:text-white hover:bg-gray-800 transition flex-shrink-0"
+                            title={goalsExpanded ? 'Back to board' : 'Expand recipes to full screen'}
+                        >
+                            {goalsExpanded ? '⤡ Board' : '⤢ Expand'}
+                        </button>
+                        <button
                             onClick={() => setGoalListOpen(o => !o)}
                             className="flex items-center justify-center w-6 h-6 rounded text-gray-500 hover:text-white hover:bg-gray-800 transition flex-shrink-0"
                             title={goalListOpen ? 'Hide goals' : 'Show goals'}
@@ -814,7 +824,7 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
                         </button>
                     </div>
                     {goalListOpen && (
-                        <div className="min-h-0 flex-1 overflow-hidden">
+                        <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
                             <GoalsPanel
                                 allTargetPool={allTargetPool}
                                 targetId={targetId}
@@ -830,7 +840,7 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
                 </div>
 
                 {/* Mobile panel — below board (< lg), scrolls as part of page */}
-                <div className="lg:hidden w-full flex-shrink-0 pb-4">
+                <div className={`lg:hidden w-full flex-shrink-0 pb-4 ${goalsExpanded ? 'hidden' : ''}`}>
                     <div className="flex items-center gap-3 p-3 mb-2 rounded-2xl border border-gray-800 bg-gray-900/80">
                         <div className="flex items-center justify-center w-14 h-14 flex-shrink-0 rounded-2xl font-bold"
                             style={{
