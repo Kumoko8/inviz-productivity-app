@@ -1,5 +1,5 @@
 import { db } from "../firebase";
-import { collection, addDoc, getDocs, query, orderBy } from "firebase/firestore";
+import { collection, addDoc, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
 import type { TrainingSession, PuzzleSession } from "../types/trainingData";
 
 export const addTrainingSession = async (
@@ -28,6 +28,16 @@ export const getTrainingSessions = async (
         console.error("Failed to fetch training sessions:", err);
         return [];
     }
+};
+
+export const setTrainingSessionPctOverride = async (
+    uid: string,
+    charId: string,
+    sessionId: string,
+    pct: number
+): Promise<void> => {
+    const ref = doc(db, "users", uid, "characters", charId, "trainingData", sessionId);
+    await updateDoc(ref, { pctOverride: pct });
 };
 
 export const addPuzzleSession = async (

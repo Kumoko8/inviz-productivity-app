@@ -14,6 +14,7 @@ export interface TrainingSession {
     correct: number;
     total: number;
     pct: number;           // 0-100
+    pctOverride?: number;  // manual admin correction, 0-100
     charName: string;
     entries: TrainingQuestionEntry[];
 }

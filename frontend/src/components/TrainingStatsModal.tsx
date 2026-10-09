@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { getTrainingSessions, getPuzzleSessions } from "../services/trainingDataService";
+import { getTrainingSessions, getPuzzleSessions, setTrainingSessionPctOverride } from "../services/trainingDataService";
 import type { TrainingSession, TrainingQuestionEntry, PuzzleSession } from "../types/trainingData";
 import { SUBTOPIC_LABELS } from "../utils/trainingUtils";
+import { isAdmin } from "../utils/adminConfig";
 
 interface Props {
     uid: string;
@@ -56,20 +57,18 @@ const TrainingStatsModal: React.FC<Props> = ({ uid, characterId, characterName, 
     const [selectedSession, setSelectedSession] = useState<TrainingSession | null>(null);
     const [tab, setTab] = useState<"sessions" | "averages">("sessions");
     const [mode, setMode] = useState<"training" | "puzzle">("training");
-    const isJqz = uid.startsWith('Jqz');
+    const canEditPct = isAdmin(uid);
     const pctOverridesKey = `trainingPctOverrides:${uid}:${characterId}`;
-    const [pctOverrides, setPctOverridesRaw] = useState<Record<string, number>>(() => {
-        try {
-            const stored = localStorage.getItem(`trainingPctOverrides:${uid}:${characterId}`);
-            return stored ? JSON.parse(stored) : {};
-        } catch {
-            return {};
-        }
-    });
+    const [pctOverrides, setPctOverridesRaw] = useState<Record<string, number>>({});
     const setPctOverrides = (updater: ((prev: Record<string, number>) => Record<string, number>)) => {
         setPctOverridesRaw(prev => {
             const next = updater(prev);
-            try { localStorage.setItem(pctOverridesKey, JSON.stringify(next)); } catch { /* ignore */ }
+            for (const id of Object.keys(next)) {
+                if (next[id] !== prev[id]) {
+                    setTrainingSessionPctOverride(uid, characterId, id, next[id])
+                        .catch(err => console.error("Failed to save pct override:", err));
+                }
+            }
             return next;
         });
     };
@@ -83,6 +82,21 @@ const TrainingStatsModal: React.FC<Props> = ({ uid, characterId, characterName, 
             getPuzzleSessions(uid, characterId),
         ]).then(([training, puzzle]) => {
             setSessions(training);
+            const remote: Record<string, number> = {};
+            training.forEach(t => { if (t.id && typeof t.pctOverride === 'number') remote[t.id] = t.pctOverride; });
+            // One-time migration of overrides previously kept only in localStorage
+            let legacy: Record<string, number> = {};
+            try { legacy = JSON.parse(localStorage.getItem(pctOverridesKey) || '{}'); } catch { /* ignore */ }
+            if (isAdmin(uid)) {
+                const known = new Set(training.map(t => t.id));
+                for (const [id, val] of Object.entries(legacy)) {
+                    if (known.has(id) && remote[id] === undefined && typeof val === 'number') {
+                        remote[id] = val;
+                        setTrainingSessionPctOverride(uid, characterId, id, val).catch(() => {});
+                    }
+                }
+            }
+            setPctOverridesRaw(remote);
             setPuzzleSessions(puzzle);
             setLoading(false);
         });
@@ -328,14 +342,14 @@ const TrainingStatsModal: React.FC<Props> = ({ uid, characterId, characterName, 
                                             <td className="py-2 pr-3 text-center text-white">{s.correct}/{s.total}</td>
                                             <td
                                                 className="py-2 text-center"
-                                                onClick={isJqz ? e => {
+                                                onClick={canEditPct ? e => {
                                                     e.stopPropagation();
                                                     if (!s.id) return;
                                                     setEditingPctId(s.id);
                                                     setEditingPctValue(String(pctOverrides[s.id] ?? s.pct));
                                                 } : undefined}
                                             >
-                                                {isJqz && s.id && editingPctId === s.id ? (
+                                                {canEditPct && s.id && editingPctId === s.id ? (
                                                     <input
                                                         type="number"
                                                         min={0}
@@ -363,7 +377,7 @@ const TrainingStatsModal: React.FC<Props> = ({ uid, characterId, characterName, 
                                                         className="w-14 bg-gray-800 text-cyan-300 font-bold text-center rounded border border-cyan-500 outline-none"
                                                     />
                                                 ) : (
-                                                    <span className={`font-bold ${isJqz ? 'cursor-pointer' : ''} ${
+                                                    <span className={`font-bold ${canEditPct ? 'cursor-pointer' : ''} ${
                                                         s.id !== undefined && pctOverrides[s.id] !== undefined
                                                             ? 'text-cyan-300'
                                                             : s.pct >= 80 ? 'text-green-400' : s.pct >= 50 ? 'text-yellow-300' : 'text-red-400'

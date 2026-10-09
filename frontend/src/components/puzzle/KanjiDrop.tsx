@@ -63,6 +63,7 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
     const [targetId, setTargetId] = useState<string>(TARGET_POOL[0]);
     const [solvedCount, setSolvedCount] = useState(0);
     const [mergeFlash, setMergeFlash] = useState<{ char: string; meaning: string } | null>(null);
+    const [selectedTile, setSelectedTile] = useState<{ char: string; meaning: string; color: string; textColor: string } | null>(null);
 
     const [goalListOpen, setGoalListOpen] = useState(true);
     const [groups, setGroups] = useState<GoalGroup[]>(() => {
@@ -461,7 +462,11 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
 
         if (drag.source !== 'palette' && typeof drag.source === 'object') {
             const { col: sc, row: sr } = drag.source;
-            if (sc === gp.col && sr === gp.row) return;
+            if (sc === gp.col && sr === gp.row) {
+                const tile = lookupTile(drag.tileId);
+                if (tile) setSelectedTile(tile);
+                return;
+            }
             grid[sr][sc] = dest ? { tileId: dest.tileId } : null;
         }
 
@@ -522,6 +527,7 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
         gridRef.current = emptyGrid();
         mergeAnimsRef.current = [];
         dragRef.current = null;
+        setSelectedTile(null);
         dirtyRef.current = true;
     }, []);
 
@@ -531,6 +537,7 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
         scoreRef.current = 0;
         solvedCountRef.current = 0;
         dragRef.current = null;
+        setSelectedTile(null);
         setScore(0);
         setSolvedCount(0);
         pickNewTarget();
@@ -779,35 +786,69 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
                 </div>
 
                 {/* Desktop sidebar — right column (lg+) */}
-                <div className={`hidden lg:flex flex-col flex-shrink-0 self-stretch overflow-hidden transition-all duration-200 ${goalListOpen ? 'w-44' : 'w-8'}`}>
-                    <div className="flex items-center gap-1 pt-1 mb-1">
-                        {goalListOpen && (
-                            <span className="text-xs text-gray-600 uppercase tracking-widest flex-1">Goals</span>
+                <div className="hidden lg:flex flex-col flex-shrink-0 self-stretch overflow-hidden w-48">
+                    <div className="flex flex-col items-center gap-2 p-3 mb-2 rounded-2xl border border-gray-800 bg-gray-900/80 text-center">
+                        <span className="text-xs text-gray-500 uppercase tracking-widest">Selected Kanji</span>
+                        {selectedTile ? (
+                            <>
+                                <div
+                                    className="flex items-center justify-center w-16 h-16 rounded-2xl font-bold"
+                                    style={{ background: selectedTile.color, color: selectedTile.textColor, fontSize: 36, fontFamily: 'serif' }}
+                                >
+                                    {selectedTile.char}
+                                </div>
+                                <span className="text-sm text-gray-200">{selectedTile.meaning}</span>
+                            </>
+                        ) : (
+                            <span className="text-xs text-gray-500">Click a tile on the board to see its name.</span>
                         )}
+                    </div>
+                    <div className="flex items-center gap-1 pt-1 mb-1">
+                        <span className="text-xs text-gray-600 uppercase tracking-widest flex-1">Goals</span>
                         <button
                             onClick={() => setGoalListOpen(o => !o)}
                             className="flex items-center justify-center w-6 h-6 rounded text-gray-500 hover:text-white hover:bg-gray-800 transition flex-shrink-0"
                             title={goalListOpen ? 'Hide goals' : 'Show goals'}
                         >
-                            <span style={{ fontSize: 10 }}>{goalListOpen ? '▶' : '◀'}</span>
+                            <span style={{ fontSize: 10 }}>{goalListOpen ? '▼' : '▶'}</span>
                         </button>
                     </div>
                     {goalListOpen && (
-                        <GoalsPanel
-                            allTargetPool={allTargetPool}
-                            targetId={targetId}
-                            groups={groups}
-                            customKanjis={customKanjis}
-                            onSaveGroups={saveGroups}
-                            onAddCustomKanji={handleAddCustomKanji}
-                            onDeleteCustomKanji={handleDeleteCustomKanji}
-                            onUpdateCustomKanji={handleUpdateCustomKanji}
-                        />
+                        <div className="min-h-0 flex-1 overflow-hidden">
+                            <GoalsPanel
+                                allTargetPool={allTargetPool}
+                                targetId={targetId}
+                                groups={groups}
+                                customKanjis={customKanjis}
+                                onSaveGroups={saveGroups}
+                                onAddCustomKanji={handleAddCustomKanji}
+                                onDeleteCustomKanji={handleDeleteCustomKanji}
+                                onUpdateCustomKanji={handleUpdateCustomKanji}
+                            />
+                        </div>
                     )}
                 </div>
 
                 {/* Mobile panel — below board (< lg), scrolls as part of page */}
                 <div className="lg:hidden w-full flex-shrink-0 pb-4">
+                    <div className="flex items-center gap-3 p-3 mb-2 rounded-2xl border border-gray-800 bg-gray-900/80">
+                        <div className="flex items-center justify-center w-14 h-14 flex-shrink-0 rounded-2xl font-bold"
+                            style={{
+                                background: selectedTile?.color ?? '#1f2937',
+                                color: selectedTile?.textColor ?? '#9ca3af',
+                                fontSize: 30,
+                                fontFamily: 'serif',
+                            }}
+                        >
+                            {selectedTile?.char ?? '漢'}
+                        </div>
+                        <div>
+                            <div className="text-xs text-gray-500 uppercase tracking-widest">Selected Kanji</div>
+                            <div className="text-sm text-gray-200">
+                                {selectedTile?.meaning ?? 'Tap a tile on the board to see its name.'}
+                            </div>
+                        </div>
+                    </div>
                     <button
                         onClick={() => setGoalListOpen(o => !o)}
                         className="flex items-center gap-2 w-full px-3 py-2 bg-gray-900/80 border border-gray-700 rounded-2xl text-xs text-gray-400 hover:text-white transition"
