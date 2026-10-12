@@ -11,24 +11,24 @@ export const PIXEL_RARITY_ORDER = ['common', 'uncommon', 'rare', 'special', 'mir
 
 export type PixelCharacterRarity = (typeof PIXEL_RARITY_ORDER)[number];
 
-export const PIXEL_CHARACTER_GROUPS = {
+const BUILTIN_GROUPS: Record<string, string> = {
   bugs: 'Bugs',
   unicorns: 'Unicorns',
   birds: 'Birds',
-} as const;
+};
 
-export type PixelCharacterGroup = keyof typeof PIXEL_CHARACTER_GROUPS;
+export type PixelCharacterGroup = string;
 
 // A character's visual is resolved at render time via `<PixelSprite id={...} />`,
 // which loads pre-rendered frames from Firebase Storage at `pixelCharacters/{id}/frame_N.png`.
-type PixelCharacter = {
+export type PixelCharacter = {
   id: string;
   name: string;
   group: PixelCharacterGroup;
   rarity: PixelCharacterRarity;
 };
 
-export const CHARACTER_POOL: PixelCharacter[] = [
+const BUILTIN_CHARACTERS: PixelCharacter[] = [
   { id: 'bee', name: 'Honey Bee', group: 'bugs', rarity: 'common' },
   { id: 'mallard-duck', name: 'Mallard Duck', group: 'birds', rarity: 'common' },
   { id: 'shoveler-duck', name: 'Shoveler Duck', group: 'birds', rarity: 'common' },
@@ -62,15 +62,36 @@ export const CHARACTER_POOL: PixelCharacter[] = [
   { id: 'fire-ant', name: 'Fire Ant', group: 'bugs', rarity: 'common' },
   { id: 'queen-black-ant', name: 'Queen Black Ant', group: 'bugs', rarity: 'uncommon' },
   { id: 'star-unicorn', name: 'Star Unicorn', group: 'unicorns', rarity: 'rare' },
+  { id: 'wind-unicorn', name: 'Wind Unicorn', group: 'unicorns', rarity: 'common' },
 ];
 
-// New pixel characters can be added purely by uploading art — no code required:
-// 1. Upload PNG frames to Storage at `pixelCharacters/{id}/frame_0.png`, `frame_1.png`, ... (one frame is fine for a static sprite).
-// 2. Add a `{ id, name, group, rarity }` entry above with a matching `id`.
+// Characters and groups added through the admin UI live in Firestore
+// (`pixelCharacters` / `pixelGroups`) and are merged over the built-ins above.
+// See `usePixelRegistry` for the live subscription that fills these in.
+let remoteCharacters: PixelCharacter[] = [];
+let remoteGroups: Record<string, string> = {};
+let mergedCharacters: PixelCharacter[] = BUILTIN_CHARACTERS;
+let mergedGroups: Record<string, string> = BUILTIN_GROUPS;
+
+const rebuild = () => {
+  const ids = new Set(BUILTIN_CHARACTERS.map(c => c.id));
+  mergedCharacters = [...BUILTIN_CHARACTERS, ...remoteCharacters.filter(c => !ids.has(c.id))];
+  mergedGroups = { ...BUILTIN_GROUPS, ...remoteGroups };
+};
+
+export const setRemoteRegistry = (characters: PixelCharacter[], groups: Record<string, string>) => {
+  remoteCharacters = characters;
+  remoteGroups = groups;
+  rebuild();
+};
+
+export const getCharacterPool = () => mergedCharacters;
+export const getCharacterGroups = () => mergedGroups;
+export const isBuiltinCharacter = (id: string) => BUILTIN_CHARACTERS.some(c => c.id === id);
 
 export const buildWeightedPool = (poolIds?: string[]) => {
   const pool: string[] = [];
-  for (const c of CHARACTER_POOL) {
+  for (const c of mergedCharacters) {
     if (poolIds && poolIds.length > 0 && !poolIds.includes(c.id)) continue;
     const count = RARITY_COUNTS[c.rarity] || 1;
     for (let i = 0; i < count; i++) pool.push(c.id);
@@ -78,7 +99,7 @@ export const buildWeightedPool = (poolIds?: string[]) => {
   return pool;
 };
 
-export const findCharacter = (id: string) => CHARACTER_POOL.find(c => c.id === id) || null;
+export const findCharacter = (id: string) => mergedCharacters.find(c => c.id === id) || null;
 
 export const nextPixelRarity = (rarity: PixelCharacterRarity): PixelCharacterRarity | null => {
   const next = PIXEL_RARITY_ORDER.indexOf(rarity) + 1;
@@ -91,7 +112,7 @@ export const findPixelTransformTargets = (
 ): PixelCharacter[] => {
   const nextRarity = nextPixelRarity(character.rarity);
   if (!nextRarity) return [];
-  const candidates = CHARACTER_POOL.filter(candidate => candidate.group === character.group && candidate.rarity === nextRarity);
+  const candidates = mergedCharacters.filter(candidate => candidate.group === character.group && candidate.rarity === nextRarity);
   // Miraculous characters are unique: only offer ones the user doesn't own yet.
   if (nextRarity === 'miraculous') {
     return candidates.filter(candidate => (owned?.[candidate.id] ?? 0) <= 0);
@@ -99,4 +120,4 @@ export const findPixelTransformTargets = (
   return candidates;
 };
 
-export default { CHARACTER_POOL, RARITY_COUNTS, buildWeightedPool, findCharacter };
+export default { getCharacterPool, RARITY_COUNTS, buildWeightedPool, findCharacter };

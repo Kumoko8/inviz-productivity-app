@@ -2,6 +2,8 @@ import React, { Dispatch, SetStateAction, useEffect, useRef, useState } from 're
 import { isAdmin } from '../utils/adminConfig';
 import ToggleArrow from './ToggleArrow';
 import SkillItem from './SkillItem';
+import PixelCharacterAdmin from './PixelCharacterAdmin';
+import PixelCharacterPreview from './PixelCharacterPreview';
 import SkillEditorMobile from './SkillEditorMobile';
 // SkillMenu removed from panel header; rendered per-skill in SkillItem now
 import { Skill } from '../types/character';
@@ -82,6 +84,8 @@ const SkillsPanel: React.FC<Props> = ({
     setShowTraining,
     uid,
 }) => {
+    const [showPixelAdmin, setShowPixelAdmin] = useState(false);
+    const [showPixelPreview, setShowPixelPreview] = useState(false);
     if (!selectedCharacter) return null;
 
     // Award XP and persist the claimed state in one atomic save
@@ -232,6 +236,8 @@ const SkillsPanel: React.FC<Props> = ({
 
     return (
         <div className="w-full max-w-md bg-white rounded-lg shadow-md p-6 border border-cyan-200 mb-8">
+            {showPixelAdmin && isAdmin(uid) && <PixelCharacterAdmin onClose={() => setShowPixelAdmin(false)} />}
+            {showPixelPreview && isAdmin(uid) && <PixelCharacterPreview onClose={() => setShowPixelPreview(false)} />}
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                     <h2 className="text-2xl font-bold text-cyan-700">Skills</h2>
@@ -283,6 +289,12 @@ const SkillsPanel: React.FC<Props> = ({
                                         <button onClick={() => setShowCalendar(true)} className="w-full px-3 py-1 bg-purple-500 text-white rounded">Calendar</button>
                                     )}
                                     <button onClick={() => { if (setShowMap) setShowMap(true); }} className="w-full px-3 py-1 bg-indigo-500 text-white rounded">Organization</button>
+                                    {isAdmin(uid) && (
+                                        <button onClick={() => setShowPixelAdmin(true)} className="w-full px-3 py-1 bg-pink-500 text-white rounded">Add Pixel Character</button>
+                                    )}
+                                    {isAdmin(uid) && (
+                                        <button onClick={() => setShowPixelPreview(true)} className="w-full px-3 py-1 bg-rose-400 text-white rounded">Pixel Gallery</button>
+                                    )}
                                     {setShowTraining && (
                                         <button onClick={() => setShowTraining(true)} className="w-full px-3 py-1 bg-amber-400 text-black rounded font-semibold">Training</button>
                                     )}

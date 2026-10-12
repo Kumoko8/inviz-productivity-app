@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useUser } from '../context/UserContext';
 import { writeUserCharacter, getUserCharacter } from '../services/characterService';
-import { CHARACTER_POOL, PIXEL_CHARACTER_GROUPS, PixelCharacterGroup, buildWeightedPool, findCharacter } from './pixels/pixelRegistry';
+import { getCharacterPool, getCharacterGroups, PixelCharacterGroup, buildWeightedPool, findCharacter } from './pixels/pixelRegistry';
+import usePixelRegistry from '../hooks/usePixelRegistry';
 import PixelSprite from './pixels/PixelSprite';
 import { totalXpForLevel } from '../utils/xpUtils';
 
@@ -24,6 +25,7 @@ const RARITY_STYLES: Record<string, string> = {
 
 
 const PixelChest: React.FC<Props> = ({ onClose, selectedCharacter, setUserCharacters, saveCharacter, price = 0 }) => {
+  usePixelRegistry();
   const [opened, setOpened] = useState(false);
   const [awarded, setAwarded] = useState<string | null>(null);
   const [awardCountBefore, setAwardCountBefore] = useState<number | null>(null);
@@ -41,7 +43,7 @@ const PixelChest: React.FC<Props> = ({ onClose, selectedCharacter, setUserCharac
 
   const openChest = async (group: PixelCharacterGroup) => {
     if (animating) return;
-    const availableIds = CHARACTER_POOL
+    const availableIds = getCharacterPool()
       .filter(character => character.group === group)
       .map(character => character.id);
 
@@ -188,7 +190,7 @@ const PixelChest: React.FC<Props> = ({ onClose, selectedCharacter, setUserCharac
             <div className="text-sm text-gray-700">Choose a character group to spin for a random Pixel Character.</div>
             {message && <div className="text-sm text-amber-700">{message}</div>}
             <div className="grid w-full grid-cols-3 gap-2">
-              {(Object.entries(PIXEL_CHARACTER_GROUPS) as [PixelCharacterGroup, string][]).map(([group, label]) => (
+              {(Object.entries(getCharacterGroups()) as [PixelCharacterGroup, string][]).map(([group, label]) => (
                 <button key={group} onClick={() => openChest(group)} disabled={animating} className="px-2 py-2 bg-amber-400 text-black rounded text-sm font-semibold hover:bg-amber-500 disabled:opacity-50">
                   {label}
                 </button>

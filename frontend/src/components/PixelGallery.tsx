@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ToggleArrow from './ToggleArrow';
 import { findCharacter, findPixelTransformTargets } from './pixels/pixelRegistry';
 import PixelSprite from './pixels/PixelSprite';
+import usePixelRegistry from '../hooks/usePixelRegistry';
 
 type Props = {
   selectedCharacter: any | null;
@@ -26,6 +27,7 @@ type PixelTransformation = {
 };
 
 const PixelGallery: React.FC<Props> = ({ selectedCharacter, onTransform }) => {
+  usePixelRegistry();
   const [open, setOpen] = useState(false);
   const [transformingId, setTransformingId] = useState<string | null>(null);
   const [pixelTransformation, setPixelTransformation] = useState<PixelTransformation | null>(null);
