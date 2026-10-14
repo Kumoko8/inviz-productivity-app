@@ -50,7 +50,7 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
     const [title, setTitle] = useState(lesson?.title ?? "");
     const [description, setDescription] = useState(lesson?.description ?? "");
     const [items, setItems] = useState<PageItem[]>(
-        () => (lesson?.pages ?? []).map(p => ({ key: nextKey(), storagePath: p.storagePath, caption: p.caption ?? "" }))
+        () => (lesson?.pages ?? []).map(p => ({ key: nextKey(), storagePath: p.storagePath, caption: p.caption ?? "", customSlide: p.customSlide }))
     );
     const [uploading, setUploading] = useState(false);
     const [progress, setProgress] = useState<UploadProgress>({ uploaded: 0, total: 0 });
@@ -233,7 +233,7 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
                                         <PageThumb item={it} />
                                         <div className="flex-1 min-w-0 flex flex-col gap-1">
                                             <div className="text-white/60 text-xs truncate">
-                                                {i + 1}. {it.file ? it.file.name : "Existing page"}
+                                                {i + 1}. {it.file ? it.file.name : it.customSlide ? "Custom slide" : "Existing page"}
                                             </div>
                                             <input
                                                 value={it.caption}

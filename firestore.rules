@@ -1,0 +1,56 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Keep in sync with ADMIN_UIDS in frontend/src/utils/adminConfig.ts
+    function isAdmin() {
+      return request.auth != null
+          && request.auth.uid in [
+            'JqzlnoRP7teD5HS96B7SUIp2Tyg2',
+            'ZmJn94M9cEdTjju2GXH2GCkkRRl1'
+          ];
+    }
+
+    // PUBLIC / shared base characters collection
+    // - Any authenticated user can read base characters
+    // - Only admins (custom claim `admin == true`) can add/update/delete base characters
+    match /characters/{charId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    // Pixel character registry (managed through the admin UI)
+    // - Any authenticated user can read
+    // - Only admin UIDs can add/update/delete
+    match /pixelCharacters/{id} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    match /pixelGroups/{id} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Users root: everything under a user's document and its subcollections
+    // This uses a recursive wildcard to cover nested subcollections such as
+    // users/{uid}/characters/{charId}/prayers/{prayerId}
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Optional: restrict access to top-level users doc itself (if you store profile fields)
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /kanjiDrop/{doc} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+}
+    // Default: deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
