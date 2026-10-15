@@ -66,6 +66,9 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
     const [phase, setPhase] = useState<GamePhase>('charPick');
     const [score, setScore] = useState(0);
     const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
+    useEffect(() => {
+        if (!selectedCharId && allCharacters.length > 0) setSelectedCharId(allCharacters[0].id);
+    }, [allCharacters, selectedCharId]);
     const [targetId, setTargetId] = useState<string>('');
     const [solvedCount, setSolvedCount] = useState(0);
     const [mergeFlash, setMergeFlash] = useState<{ char: string; meaning: string } | null>(null);
@@ -517,15 +520,17 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
                 </p>
                 {allCharacters.length > 0 && (
                     <>
-                        <p className="text-amber-300/60 text-xs mb-3">Award XP to:</p>
-                        <div className="flex flex-wrap gap-2 justify-center max-w-sm mb-6">
+                        <label className="text-amber-300/60 text-xs mb-2" htmlFor="hd-char-select">Award XP to:</label>
+                        <select
+                            id="hd-char-select"
+                            value={selectedCharId ?? allCharacters[0].id}
+                            onChange={e => setSelectedCharId(e.target.value)}
+                            className="w-full max-w-xs mb-6 px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-amber-100 text-sm focus:outline-none focus:border-amber-500"
+                        >
                             {allCharacters.map(c => (
-                                <button key={c.id} onClick={() => setSelectedCharId(prev => prev === c.id ? null : c.id)}
-                                    className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${selectedCharId === c.id ? 'bg-amber-700/30 border-amber-500 text-amber-300' : 'bg-gray-900 border-gray-700 text-gray-400 hover:border-amber-700'}`}>
-                                    {c.name}
-                                </button>
+                                <option key={c.id} value={c.id}>{c.name}</option>
                             ))}
-                        </div>
+                        </select>
                     </>
                 )}
                 <button onClick={startGame}
