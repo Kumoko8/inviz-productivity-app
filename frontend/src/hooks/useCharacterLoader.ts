@@ -14,11 +14,13 @@ export default function useCharacterLoader(uid: string | null) {
 
         const loadAll = async () => {
             try {
-                const baseCharactersRaw = await getCharacters();
+                const basePromise = getCharacters();
+                const [baseCharactersRaw, userCharMap] = await Promise.all([
+                    basePromise,
+                    getUserCharacters(uid, basePromise) as Promise<Record<string, any>>,
+                ]);
                 const baseCharacters: Character[] = baseCharactersRaw.map((d: any) => ({ ...(d as any) }));
                 setCharacters(baseCharacters);
-
-                const userCharMap: Record<string, any> = await getUserCharacters(uid);
 
                 // merge base + user data (ensuring skills/prayers are arrays)
                 const merged: Record<string, any> = {};
@@ -75,6 +77,7 @@ export default function useCharacterLoader(uid: string | null) {
                 }
 
                 setUserCharacters(merged);
+                setLoaded(true);
 
                 // Lazy-create missing per-user character docs so UI and persistence stay in sync.
                 const legacyRoot = await getUserDoc(uid);
@@ -106,8 +109,15 @@ export default function useCharacterLoader(uid: string | null) {
                     }
                 }
 
-                setUserCharacters(merged);
-                setLoaded(true);
+                // only add newly created docs so edits made since first render aren't overwritten
+                const added = Object.keys(merged).filter((id) => !userCharMap[id] && merged[id]);
+                if (added.length > 0) {
+                    setUserCharacters((prev) => {
+                        const next = { ...prev };
+                        for (const id of added) next[id] = { ...next[id], ...merged[id] };
+                        return next;
+                    });
+                }
             } catch (err) {
                 console.error('useCharacterLoader: loadAll failed', err);
             }

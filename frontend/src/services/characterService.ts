@@ -58,7 +58,10 @@ export const addCharacterToUser = async (
 };
 
 // Get all characters for a user
-export const getUserCharacters = async (userId: string): Promise<Record<string, UserCharacterDataFirestore>> => {
+export const getUserCharacters = async (
+  userId: string,
+  baseCharacters?: any[] | Promise<any[]>
+): Promise<Record<string, UserCharacterDataFirestore>> => {
   try {
     const userCharsRef = collection(db, "users", userId, "characters");
     const snapshot = await getDocs(userCharsRef);
@@ -66,6 +69,7 @@ export const getUserCharacters = async (userId: string): Promise<Record<string, 
     snapshot.docs.forEach(docSnap => {
       data[docSnap.id] = docSnap.data() as UserCharacterDataFirestore;
     });
+    const bases = baseCharacters ? await baseCharacters : undefined;
     // enrich with base character transform data (read-only fallback) using targeted queries
     try {
       const entries = Object.entries(data) as [string, any][];
@@ -77,13 +81,16 @@ export const getUserCharacters = async (userId: string): Promise<Record<string, 
           const missingAnimArrays = !uc.actionAnimations || !uc.damageAnimations || !uc.defeatAnimations || !uc.woundedAnimations;
           if (!missingTransform && !missingAnimArrays) return;
 
-          // prefer a query by `name`
-          const q = query(charactersRef, where('name', '==', uc.name), limit(1));
-          const snap = await getDocs(q);
           let base: any = null;
-          if (!snap.empty) {
-            base = snap.docs[0].data();
+          if (bases) {
+            // already-fetched base list: no extra round trips
+            base = bases.find((b: any) => b.name === uc.name || b.id === uc.name) || null;
           } else {
+            const q = query(charactersRef, where('name', '==', uc.name), limit(1));
+            const snap = await getDocs(q);
+            if (!snap.empty) base = snap.docs[0].data();
+          }
+          if (!base && !bases) {
             // fallback: check for a doc with id === uc.name
             try {
               const docRef = doc(db, 'characters', uc.name);
