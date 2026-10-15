@@ -353,7 +353,7 @@ const Dashboard: React.FC = () => {
 <div className="w-full max-w-4xl">
   <p className="text-center text-gray-700 mb-4">{user?.displayName || user?.email || 'Player'}</p>
 </div>
-      <CharacterGallery onCreateUserCharacter={async (base: any, playerName: string) => {
+      <CharacterGallery isAdmin={isAdmin(uid)} onCreateUserCharacter={async (base: any, playerName: string) => {
         if (!uid) {
           alert('Please sign in to create a new character instance.');
           return;

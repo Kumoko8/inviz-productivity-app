@@ -2,17 +2,19 @@ import React, { useEffect, useState } from "react";
 import ToggleArrow from "./ToggleArrow";
 import { getCharacters } from "../services/characterService";
 import GalleryTile from "./GalleryTile";
+import AdminAnimationPreview from "./AdminAnimationPreview";
 import usePreviewLoader from "../hooks/usePreviewLoader";
 
 type Props = {
     names?: string[]; // names to show (case-insensitive). Defaults to specific set.
+    isAdmin?: boolean;
     onCreateUserCharacter?: (baseCharacter: any, playerName: string) => void; // called when user picks a base and supplies player name
 };
 
 const DEFAULT_NAMES = ["Yumi", "Kiiro", "Maguro", "Mushi", "Kumo", "Roku"];
 
 
-const CharacterGallery: React.FC<Props> = ({ names, onCreateUserCharacter }) => {
+const CharacterGallery: React.FC<Props> = ({ names, isAdmin, onCreateUserCharacter }) => {
     const [open, setOpen] = useState(false);
     const [displayNames, setDisplayNames] = useState<string[]>(names && names.length > 0 ? names : DEFAULT_NAMES);
     const [baseChars, setBaseChars] = useState<any[]>([]);
@@ -73,6 +75,7 @@ const CharacterGallery: React.FC<Props> = ({ names, onCreateUserCharacter }) => 
                             </div>
                         );
                     })}
+                    {isAdmin && <AdminAnimationPreview characters={baseChars} />}
                 </div>
             )}
             {/* Modal for entering player name */}
