@@ -105,9 +105,9 @@ const SlideEditor: React.FC<Props> = ({ initialValue, onSave, onCancel }) => {
                         value={text}
                         onChange={e => setText(e.target.value)}
                         placeholder="Type your slide text…"
-                        rows={4}
+                        rows={6}
                         autoFocus
-                        className="w-full bg-white/5 text-white text-sm px-3 py-2 rounded-lg border border-white/10 outline-none placeholder-white/25 focus:border-white/25"
+                        className="w-full shrink-0 min-h-[8rem] resize-y bg-white/5 text-white text-sm px-3 py-2 rounded-lg border border-white/10 outline-none placeholder-white/25 focus:border-white/25"
                     />
                     <div className="flex flex-wrap gap-x-6 gap-y-3 items-center">
                         <div className="flex items-center gap-2">

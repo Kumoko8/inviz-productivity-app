@@ -42,7 +42,7 @@ const BUILTIN_CHARACTERS: PixelCharacter[] = [
   { id: 'green-weaver-ant', name: 'Green Weaver Ant', group: 'bugs', rarity: 'common' },
   { id: 'bumble-bee', name: 'Bumble Bee', group: 'bugs', rarity: 'uncommon' },
   { id: 'leaf-cutter-bee', name: 'Leaf Cutter Bee', group: 'bugs', rarity: 'uncommon' },
-  { id: 'monarch-butterfly', name: 'Monarch Butterfly', group: 'bugs', rarity: 'uncommon' },
+  { id: 'monarch-butterfly', name: 'Monarch Butterfly', group: 'bugs', rarity: 'special' },
   { id: 'queen-bee', name: 'Queen Bee', group: 'bugs', rarity: 'uncommon' },
   { id: 'queen-bumble-bee', name: 'Queen Bumble Bee', group: 'bugs', rarity: 'rare' },
   { id: 'blue-queen-bee', name: 'Blue Queen Bee', group: 'bugs', rarity: 'rare' },

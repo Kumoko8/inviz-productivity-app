@@ -39,6 +39,28 @@ const StillFrame: React.FC<{ url?: string; className?: string }> = ({ url, class
     );
 };
 
+export type StillState = 'default' | 'earnXp' | 'loseHp' | 'wounded';
+export type StillFrames = Partial<Record<StillState, string>>;
+const STILL_EVENT_MS = 20000;
+const WOUNDED_HP = 50;
+
+// Responsive still frame: shows the Storage image (path stored in the character's Firestore
+// `stillFrames` map) for the current state, falling back to the default image, then the paused video.
+const ResponsiveStill: React.FC<{ frames?: StillFrames; state: StillState; videoUrl?: string; className?: string }> = ({ frames, state, videoUrl, className }) => {
+    const [urls, setUrls] = useState<StillFrames>({});
+    const path = frames?.[state] || frames?.default;
+    const key = frames?.[state] ? state : 'default';
+    React.useEffect(() => {
+        if (!path || urls[key]) return;
+        let cancelled = false;
+        fetchAnimUrl(path).then(url => { if (!cancelled && url) setUrls(prev => ({ ...prev, [key]: url })); });
+        return () => { cancelled = true; };
+    }, [path, key, urls]);
+    const url = path ? urls[key] : undefined;
+    if (!url) return <StillFrame url={videoUrl} className={className} />;
+    return <img src={url} alt="" className={`${className ?? 'w-full h-full'} object-contain pointer-events-none`} />;
+};
+
 interface Props {
     uid?: string | null;
     characters: Character[];
@@ -69,6 +91,16 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
     const [xpAwardAmount, setXpAwardAmount] = useState('10');
     const [hpAwardAmount, setHpAwardAmount] = useState(10);
     const [xpAnimatingFull, setXpAnimatingFull] = useState<Record<string, boolean>>({});
+    const [stillEvents, setStillEvents] = useState<Record<string, 'earnXp' | 'loseHp'>>({});
+    const stillTimers = useRef<Record<string, number>>({});
+    const triggerStill = (charId: string, event: 'earnXp' | 'loseHp') => {
+        setStillEvents(prev => ({ ...prev, [charId]: event }));
+        if (stillTimers.current[charId]) window.clearTimeout(stillTimers.current[charId]);
+        stillTimers.current[charId] = window.setTimeout(() => {
+            setStillEvents(prev => { const next = { ...prev }; delete next[charId]; return next; });
+        }, STILL_EVENT_MS);
+    };
+    React.useEffect(() => () => { Object.values(stillTimers.current).forEach(t => window.clearTimeout(t)); }, []);
     const [xpLevelToast, setXpLevelToast] = useState<Record<string, boolean>>({});
     const xpAnimTimeouts = useRef<Record<string, number[]>>({});
     const [transformReadyList, setTransformReadyList] = useState<string[]>([]);
@@ -431,6 +463,7 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
         const curHp = typeof uc.hp === 'number' ? uc.hp : (ch.hp ?? 100);
         const maxHp = typeof uc.maxHp === 'number' ? uc.maxHp : (ch.maxHp ?? 100);
         const newHp = Math.max(0, Math.min(maxHp, curHp + delta));
+        if (newHp < curHp) triggerStill(charId, 'loseHp');
         const updated = { ...uc, hp: newHp };
         setUserCharacters((prev: Record<string, any>) => ({ ...prev, [charId]: updated }));
         try { await saveCharacter(updated); } catch (e) { console.error(e); }
@@ -440,6 +473,8 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
     const setCharHp = async (charId: string, hp: number) => {
         const ch = allChars.find((x: any) => x.id === charId) ?? {} as any;
         const uc = userCharacters[charId] ?? ch ?? {};
+        const prevHp = typeof uc.hp === 'number' ? uc.hp : (ch.hp ?? 100);
+        if (hp < prevHp) triggerStill(charId, 'loseHp');
         const updated = { ...uc, hp };
         setUserCharacters((prev: Record<string, any>) => ({ ...prev, [charId]: updated }));
         try { await saveCharacter(updated); } catch (e) { console.error(e); }
@@ -505,6 +540,7 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
             ? Math.max(0, Math.floor(uc.currencyXp))
             : totalXpForLevel(curLevel, curXp);
         const newCurrency = existingCurrency + delta;
+        if (delta > 0) triggerStill(charId, 'earnXp');
         let tmpXp = curXp + delta;
         let tmpLevel = curLevel;
         let nextXP = xpThreshold(tmpLevel);
@@ -836,13 +872,15 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
                                         const nextLevelXP = xpThreshold(level);
                                         const xpPercent = Math.max(0, Math.min(100, Math.round((xp / Math.max(1, nextLevelXP)) * 100)));
                                         const animUrl = animUrls[c.id];
+                                        const stillFrames: StillFrames | undefined = uc.stillFrames ?? (characters || []).find((b: any) => b.id === c.id)?.stillFrames;
+                                        const stillState: StillState = stillEvents[c.id] ?? (hp <= WOUNDED_HP ? 'wounded' : 'default');
                                         return (
                                             <div className="mt-2">
                                                 <div className="w-full bg-white border rounded overflow-hidden flex items-center justify-center relative">
                                                     {animLoading[c.id] ? (
                                                         <div className="w-6 h-6 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
-                                                    ) : (animUrl && selected.includes(c.id)) ? (
-                                                        <StillFrame url={animUrl} className="w-full h-40 " />
+                                                    ) : ((animUrl || stillFrames) && selected.includes(c.id)) ? (
+                                                        <ResponsiveStill frames={stillFrames} state={stillState} videoUrl={animUrl} className="w-full h-40 " />
                                                     ) : (
                                                         <div className="text-xs text-gray-400 py-6">{selected.includes(c.id) ? 'No preview' : 'Click name to select'}</div>
                                                     )}

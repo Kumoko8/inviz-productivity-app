@@ -96,6 +96,7 @@ export interface Character {
   damageAnimations?: string[]; // per-form damage (hurt) animation Storage paths
   defeatAnimations?: string[]; // per-form defeat animation Storage paths
   woundedAnimations?: string[]; // per-form wounded (HP ≤ 50%) animation Storage paths
+  stillFrames?: Partial<Record<'default' | 'earnXp' | 'loseHp' | 'wounded', string>>; // ClassMode still image Storage paths
   pixelCharacters?: Record<string, number>;
 
 }
@@ -114,6 +115,7 @@ export interface BaseCharacterFirestore {
   damageAnimations?: string[]; // per-form damage animation Storage paths
   defeatAnimations?: string[]; // per-form defeat animation Storage paths
   woundedAnimations?: string[]; // per-form wounded animation Storage paths
+  stillFrames?: Partial<Record<'default' | 'earnXp' | 'loseHp' | 'wounded', string>>;
 }
 
 export interface UserCharacterDataFirestore {
