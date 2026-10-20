@@ -33,6 +33,23 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Reusable pixel canvas templates (32x32 PNG data URLs)
+    match /pixelTemplates/{id} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Pixel journal (admin-authored discoveries by date)
+    match /pixelJournalCreatures/{id} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    match /pixelJournalEntries/{date} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
     // Users root: everything under a user's document and its subcollections
     // This uses a recursive wildcard to cover nested subcollections such as
     // users/{uid}/characters/{charId}/prayers/{prayerId}

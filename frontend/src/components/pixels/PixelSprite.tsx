@@ -7,13 +7,14 @@ type Props = {
     fps?: number;
     size?: number; // base sprite size in px before scaling; legacy sprites were drawn at 32x32
     className?: string;
+    basePath?: string; // Storage folder holding `{id}/frame_N.png`; defaults to the pixel character art
 };
 
 // Generic replacement for the old hand-coded `*Pixel.tsx` components: instead of
 // drawing frames on a canvas at runtime, this loads pre-rendered PNG frames from
 // Firebase Storage (`pixelCharacters/{id}/frame_N.png`) and cycles through them.
-const PixelSprite: React.FC<Props> = ({ id, scale = 6, fps = 6, size = 32, className }) => {
-    const { frames, loading } = usePixelSpriteFrames(id);
+const PixelSprite: React.FC<Props> = ({ id, scale = 6, fps = 6, size = 32, className, basePath }) => {
+    const { frames, loading } = usePixelSpriteFrames(id, basePath);
     const [frameIndex, setFrameIndex] = useState(0);
 
     useEffect(() => {

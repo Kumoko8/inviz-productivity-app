@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { PixelTemplate, deletePixelTemplate, savePixelTemplate, subscribePixelTemplates } from '../services/pixelTemplateService';
+
 type Tool = 'pen' | 'eraser' | 'fill';
 
 const SIZE = 32;
@@ -23,6 +25,11 @@ const PixelCanvasEditor: React.FC<Props> = ({ defaultName, frames, onAddFrame, o
     const [tool, setTool] = useState<Tool>('pen');
     const [color, setColor] = useState('#000000');
     const [showGrid, setShowGrid] = useState(true);
+
+    const [templates, setTemplates] = useState<PixelTemplate[]>([]);
+    const [templateName, setTemplateName] = useState('');
+    const [templateError, setTemplateError] = useState<string | null>(null);
+    useEffect(() => subscribePixelTemplates(setTemplates), []);
 
     const previews = useMemo(() => frames.map(f => URL.createObjectURL(f)), [frames]);
     useEffect(() => () => previews.forEach(u => URL.revokeObjectURL(u)), [previews]);
@@ -181,6 +188,19 @@ const PixelCanvasEditor: React.FC<Props> = ({ defaultName, frames, onAddFrame, o
         img.src = src;
     };
 
+    // Saving under an existing name overwrites it, which is how a template gets edited.
+    const saveTemplate = async () => {
+        const name = templateName.trim();
+        if (!name) return setTemplateError('Name the template first.');
+        setTemplateError(null);
+        try {
+            await savePixelTemplate(name, canvasRef.current!.toDataURL('image/png'));
+            setTemplateName('');
+        } catch (e: any) {
+            setTemplateError(e?.message || 'Could not save the template.');
+        }
+    };
+
     const btn = 'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors';
     const idle = 'bg-gray-800 text-gray-300 hover:bg-gray-700';
 
@@ -237,6 +257,38 @@ const PixelCanvasEditor: React.FC<Props> = ({ defaultName, frames, onAddFrame, o
                             onClick={() => onRemoveFrame(i)}
                             className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[10px] leading-none hidden group-hover:block"
                             aria-label={`Remove frame ${i + 1}`}
+                        >×</button>
+                    </div>
+                ))}
+            </div>
+
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-900/70 border-b border-gray-800 overflow-x-auto">
+                <input
+                    value={templateName}
+                    onChange={e => setTemplateName(e.target.value)}
+                    placeholder="Template name"
+                    className="shrink-0 w-36 px-2 py-1 rounded bg-gray-800 text-gray-200 text-sm border border-gray-700"
+                />
+                <button onClick={saveTemplate} className={`${btn} bg-violet-600 hover:bg-violet-500 text-white shrink-0`} title="Save the current canvas as a reusable template (same name overwrites)">
+                    Save as template
+                </button>
+                {templateError && <span className="text-xs text-red-400 shrink-0">{templateError}</span>}
+                <span className="text-xs text-gray-400 shrink-0">Templates ({templates.length}):</span>
+                {templates.map(t => (
+                    <div key={t.id} className="relative shrink-0 group">
+                        <img
+                            src={t.dataUrl}
+                            alt={t.name}
+                            title={`Load "${t.name}" onto the canvas`}
+                            onClick={() => { loadFrame(t.dataUrl); setTemplateName(t.name); }}
+                            className="w-10 h-10 border border-violet-500 cursor-pointer bg-gray-700"
+                            style={{ imageRendering: 'pixelated' }}
+                        />
+                        <span className="absolute bottom-0 left-0 right-0 text-[9px] bg-black/70 text-white px-0.5 truncate">{t.name}</span>
+                        <button
+                            onClick={() => { if (window.confirm(`Delete template "${t.name}"?`)) deletePixelTemplate(t.id).catch(() => setTemplateError('Could not delete.')); }}
+                            className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[10px] leading-none hidden group-hover:block"
+                            aria-label={`Delete template ${t.name}`}
                         >×</button>
                     </div>
                 ))}
