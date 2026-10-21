@@ -69,6 +69,13 @@ export interface PrayerRequest {
     startDate: number; // epoch ms
     progress: number;  // 0–100
     level: number;     // starts at 1
+    groupId?: string;  // panel-only organisation; never read by the prayer orbs
+}
+
+// Panel folders (e.g. "Government"). Purely organisational: separate from PrayOrbGroup.
+export interface PrayerRequestGroup {
+    id: string;
+    name: string;
 }
 
 function prayerRequestsRef(userId: string, characterId: string) {
@@ -90,6 +97,23 @@ export async function savePrayerRequests(
     requests: PrayerRequest[]
 ): Promise<void> {
     await setDoc(prayerRequestsRef(userId, characterId), { requests }, { merge: true });
+}
+
+export async function loadPrayerRequestGroups(
+    userId: string,
+    characterId: string
+): Promise<PrayerRequestGroup[]> {
+    const snap = await getDoc(prayerRequestsRef(userId, characterId));
+    if (!snap.exists()) return [];
+    return (snap.data().requestGroups as PrayerRequestGroup[]) ?? [];
+}
+
+export async function savePrayerRequestGroups(
+    userId: string,
+    characterId: string,
+    requestGroups: PrayerRequestGroup[]
+): Promise<void> {
+    await setDoc(prayerRequestsRef(userId, characterId), { requestGroups }, { merge: true });
 }
 
 // ─── Prayer Orb Groups (collapsed clusters of prayer/drawing orbs) ──────────
