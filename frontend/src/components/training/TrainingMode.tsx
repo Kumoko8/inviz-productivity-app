@@ -10,6 +10,7 @@ import { generateQuestion, pickWeightedCustomQuestion, Question, QuestionHistory
 import { addTrainingSession } from "../../services/trainingDataService";
 import { CustomTrainingSeries } from "../../types/customTraining";
 import { xpThreshold } from "../../utils/xpUtils";
+import { ABILITY_CONFIG, abilityForCompanion } from "../pixels/pixelAbilities";
 import { TrainingQuestionEntry } from "../../types/trainingData";
 import StoryReader from "../puzzle/reading/StoryReader";
 import EquationsGame from "../puzzle/math/EquationsGame";
@@ -70,6 +71,17 @@ const TrainingMode: React.FC<Props> = ({ uid, allCharacters, onAwardXP, onSetHp,
     const [storyReaderChars, setStoryReaderChars] = useState<CharacterOption[]>([]);
     const [equationsChars, setEquationsChars] = useState<CharacterOption[]>([]);
 
+    const [abilityNotices, setAbilityNotices] = useState<Record<string, string>>({});
+    const storyReviveUsed = useRef<Record<string, boolean>>({});
+    const clearAbilityNotice = (charId?: string) => setAbilityNotices(prev => {
+        if (charId === undefined) return {};
+        const n = { ...prev }; delete n[charId]; return n;
+    });
+    // Sticky notices stay until that character answers again (or the question changes)
+    const showAbilityNotice = (charId: string, text: string, sticky = false) => {
+        setAbilityNotices(prev => ({ ...prev, [charId]: text }));
+        if (!sticky) window.setTimeout(() => clearAbilityNotice(charId), 1800);
+    };
     const [charStates, setCharStates] = useState<Record<string, TrainingCharacterState>>({});
     const [levelUpToast, setLevelUpToast] = useState<Record<string, boolean>>({});
     const [transformReadyList, setTransformReadyList] = useState<string[]>([]);
@@ -115,6 +127,7 @@ const TrainingMode: React.FC<Props> = ({ uid, allCharacters, onAwardXP, onSetHp,
                 xp: c.xp ?? 0,
                 level: c.level ?? 1,
                 animUrl: c.animUrl,
+                companionId: c.companionId,
             };
         }
         return map;
@@ -134,6 +147,7 @@ const TrainingMode: React.FC<Props> = ({ uid, allCharacters, onAwardXP, onSetHp,
         // Reset per-session tracking
         questionLogRef.current = {};
         sessionSavedRef.current = false;
+        storyReviveUsed.current = {};
 
         const resolvedOpponent = OPPONENT_BY_LEVEL[level];
         setOpponentName(resolvedOpponent);
@@ -245,6 +259,11 @@ const TrainingMode: React.FC<Props> = ({ uid, allCharacters, onAwardXP, onSetHp,
     };
 
     const handleCorrect = (charId: string, userAnswer: string) => {
+        clearAbilityNotice(charId);
+        // Bird companion: sometimes a correct answer hits twice as hard
+        const doubled = abilityForCompanion(charOptionsRef.current[charId]?.companionId) === 'birds'
+            && Math.random() < ABILITY_CONFIG.birdDoubleChance;
+        if (doubled) showAbilityNotice(charId, 'Double damage!');
         setScore(s => ({ ...s, correct: s.correct + 1 }));
         setCharScores(prev => {
             const cur = prev[charId] ?? { correct: 0, total: 0 };
@@ -266,7 +285,7 @@ const TrainingMode: React.FC<Props> = ({ uid, allCharacters, onAwardXP, onSetHp,
         if (actionUrl) {
             setCharStates(prev => prev[charId] ? { ...prev, [charId]: { ...prev[charId], animUrl: actionUrl } } : prev);
         }
-        const newHp = Math.max(0, opponentHp - OPPONENT_DAMAGE);
+        const newHp = Math.max(0, opponentHp - OPPONENT_DAMAGE * (doubled ? 2 : 1));
         setOpponentHp(newHp);
         if (newHp <= 0) setPhase("victory");
     };
@@ -280,7 +299,14 @@ const TrainingMode: React.FC<Props> = ({ uid, allCharacters, onAwardXP, onSetHp,
         });
     };
 
-    const handleWrong = (charId: string, userAnswer: string) => {
+    const handleWrong = (charId: string, userAnswer: string): boolean => {
+        clearAbilityNotice(charId);
+        const ability = abilityForCompanion(charOptionsRef.current[charId]?.companionId);
+        // Unicorn companion: sometimes forgive a wrong answer entirely (nothing is logged or penalised)
+        if (ability === 'unicorns' && Math.random() < ABILITY_CONFIG.unicornRetryChance) {
+            showAbilityNotice(charId, 'Unicorn power:Second chance!');
+            return true;
+        }
         setScore(s => ({ ...s, wrong: s.wrong + 1 }));
         setCharScores(prev => {
             const cur = prev[charId] ?? { correct: 0, total: 0 };
@@ -299,7 +325,14 @@ const TrainingMode: React.FC<Props> = ({ uid, allCharacters, onAwardXP, onSetHp,
         // Compute new HP from charOptionsRef (kept in sync) so we can persist + update the ref outside setCharStates
         const curHp = charOptionsRef.current[charId]?.hp ?? 100;
         const maxHp = charOptionsRef.current[charId]?.maxHp ?? 100;
-        const newHp = Math.max(0, curHp - CHARACTER_DAMAGE);
+        const damage = ability === 'bugs' ? ABILITY_CONFIG.bugWrongDamage : CHARACTER_DAMAGE;
+        let newHp = Math.max(0, curHp - damage);
+        // Story companion: the first time HP hits 0 this session, restore some health instead
+        if (newHp <= 0 && ability === 'story' && !storyReviveUsed.current[charId]) {
+            storyReviveUsed.current[charId] = true;
+            newHp = Math.min(maxHp, ABILITY_CONFIG.storyReviveHp);
+            showAbilityNotice(charId, 'Story power: +50 HP!');
+        }
         // Keep ref in sync so handleQuickRestart seeds correct HP
         if (charOptionsRef.current[charId]) {
             charOptionsRef.current[charId] = { ...charOptionsRef.current[charId], hp: newHp };
@@ -326,9 +359,11 @@ const TrainingMode: React.FC<Props> = ({ uid, allCharacters, onAwardXP, onSetHp,
             if (allDead) setTimeout(() => setPhase("defeat"), 50);
             return next;
         });
+        return false;
     };
 
     const handleNext = () => {
+        clearAbilityNotice();
         if (customSeries && subtopicLevel) {
             setQuestion(pickWeightedCustomQuestion(customSeries.questions[subtopicLevel], questionHistoryRef.current));
         } else if (difficulty && subtopicLevel) {
@@ -577,6 +612,7 @@ const TrainingMode: React.FC<Props> = ({ uid, allCharacters, onAwardXP, onSetHp,
                                     onCorrect={handleCorrect}
                                     onWrong={handleWrong}
                                     onNext={handleNext}
+                                    abilityNotice={abilityNotices[cs.id]}
                                     onActionAnimEnd={handleActionAnimEnd}
                                 />
                             ))}

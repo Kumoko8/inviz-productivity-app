@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { Question } from "../../utils/trainingUtils";
 import { xpThreshold } from "../../utils/xpUtils";
 import LevelUpOverlay from "../LevelUpOverlay";
+import PixelSprite from "../pixels/PixelSprite";
+import { ABILITY_LABELS, abilityForCompanion } from "../pixels/pixelAbilities";
 
 export interface TrainingCharacterState {
     id: string;
@@ -10,6 +12,7 @@ export interface TrainingCharacterState {
     maxHp: number;
     xp: number;
     level: number;
+    companionId?: string; // pixel character shown beside the animation
     animUrl?: string;  // currently active animation URL
     // All resolved URLs — card mounts all simultaneously; opacity picks the visible one
     allAnimUrls?: { idle?: string; wounded?: string; action?: string; damage?: string; defeat?: string };
@@ -21,16 +24,18 @@ interface Props {
     showLevelUp?: boolean;
     onLevelUpDone?: () => void;
     onCorrect: (id: string, userAnswer: string) => void;
-    onWrong: (id: string, userAnswer: string) => void;
+    // Returns true when a companion ability grants a second try (no penalty applied)
+    onWrong: (id: string, userAnswer: string) => boolean | void;
+    abilityNotice?: string;
     onNext: () => void;
     // Fired once the action video has actually finished playing (not on a fixed timer)
     onActionAnimEnd?: (id: string) => void;
 }
 
-type FeedbackState = "idle" | "correct" | "wrong";
+type FeedbackState = "idle" | "correct" | "wrong" | "retry";
 
-const TrainingCharacterCard: React.FC<Props> = ({ character, question, showLevelUp, onLevelUpDone, onCorrect, onWrong, onNext, onActionAnimEnd }) => {
-    const { id, name, hp, maxHp, xp, level, animUrl, allAnimUrls } = character;
+const TrainingCharacterCard: React.FC<Props> = ({ character, question, showLevelUp, onLevelUpDone, onCorrect, onWrong, onNext, onActionAnimEnd, abilityNotice }) => {
+    const { id, name, hp, maxHp, xp, level, animUrl, allAnimUrls, companionId } = character;
     const isDead = hp <= 0;
     // Latest hp/maxHp for use inside the video 'ended' handler, without forcing the
     // playback effect to re-run (and restart the currently playing video) on every HP change.
@@ -115,7 +120,7 @@ const TrainingCharacterCard: React.FC<Props> = ({ character, question, showLevel
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!question || isDead || feedback !== "idle") return;
+        if (!question || isDead || (feedback !== "idle" && feedback !== "retry")) return;
         const userAnswer = normalizeAnswer(input);
         if (!userAnswer) return;
         const acceptedAnswers = (Array.isArray(question.answer)
@@ -127,18 +132,25 @@ const TrainingCharacterCard: React.FC<Props> = ({ character, question, showLevel
             onCorrect(id, userAnswer);
             setTimeout(onNext, 600);
         } else {
+            const retry = onWrong(id, userAnswer);
+            if (retry) {
+                setFeedback("retry");
+                setInput("");
+                return;
+            }
             setFeedback("wrong");
             triggerFlash('hurt');
-            onWrong(id, userAnswer);
         }
     };
 
     const borderClass = isDead ? "border-gray-600 opacity-50" :
         feedback === "correct" ? "border-green-400" :
             feedback === "wrong" ? "border-red-500" :
+            feedback === "retry" ? "border-yellow-400" :
                 "border-purple-500";
 
     return (
+        <div className="flex flex-col gap-1.5 w-full">
         <div className={`flex flex-col gap-2 p-3 rounded-xl border-2 bg-gray-900 w-full transition-all duration-150 ${borderClass}`}>
             {/* Character sprite */}
             <div
@@ -169,6 +181,11 @@ const TrainingCharacterCard: React.FC<Props> = ({ character, question, showLevel
                         : (
                             <span className="text-5xl">🧙</span>
                         )}
+                {companionId && (
+                    <div className={`absolute bottom-1 right-1 pointer-events-none ${isDead ? 'opacity-40 grayscale' : ''}`}>
+                        <PixelSprite id={companionId} scale={2} fps={6} />
+                    </div>
+                )}
             </div>
 
             {/* Name + stats — relative anchor for level-up toast */}
@@ -212,8 +229,8 @@ const TrainingCharacterCard: React.FC<Props> = ({ character, question, showLevel
                     <input
                         type="text"
                         value={input}
-                        onChange={e => { if (feedback === "idle") setInput(e.target.value); }}
-                        disabled={isDead || feedback !== "idle"}
+                        onChange={e => { if (feedback === "idle" || feedback === "retry") setInput(e.target.value); }}
+                        disabled={isDead || (feedback !== "idle" && feedback !== "retry")}
                         placeholder="Answer"
                         className={`flex-1 min-w-0 text-center text-sm font-bold border-2 rounded-lg px-2 py-1 outline-none bg-gray-800 text-white
                             focus:ring-2 focus:ring-purple-400
@@ -230,9 +247,9 @@ const TrainingCharacterCard: React.FC<Props> = ({ character, question, showLevel
                     ) : (
                         <button
                             type="submit"
-                            disabled={isDead || !question || feedback !== "idle"}
+                            disabled={isDead || !question || (feedback !== "idle" && feedback !== "retry")}
                             className={`px-2 py-1 text-xs font-bold rounded-lg transition flex-shrink-0
-                                ${isDead || feedback !== "idle" ? "bg-gray-700 text-gray-500 cursor-not-allowed" : "bg-purple-600 hover:bg-purple-700 text-white"}`}
+                                ${isDead || (feedback !== "idle" && feedback !== "retry") ? "bg-gray-700 text-gray-500 cursor-not-allowed" : "bg-purple-600 hover:bg-purple-700 text-white"}`}
                         >
                             {feedback === "correct" ? "✓" : "Action"}
                         </button>
@@ -240,12 +257,21 @@ const TrainingCharacterCard: React.FC<Props> = ({ character, question, showLevel
                 </form>
 
                 {/* Per-card feedback */}
-                {feedback !== "idle" && (
+                {feedback === "retry" && (
+                    <div className="text-xs font-semibold text-center text-yellow-300">Unicorn power:Second chance — try again!</div>
+                )}
+                {feedback !== "idle" && feedback !== "retry" && (
                     <div className={`text-xs font-semibold text-center ${feedback === "correct" ? "text-green-400" : "text-red-400"}`}>
                         {feedback === "correct" ? "✓ Correct!" : `✗ Ans: ${Array.isArray(question?.answer) ? question.answer[0] : question?.answer}`}
                     </div>
                 )}
             </div>
+        </div>
+        {abilityNotice && (
+            <div className="w-full text-center text-sm font-bold text-yellow-200 bg-yellow-600/30 border border-yellow-400 rounded-lg px-3 py-2 animate-bounce">
+                {abilityNotice}
+            </div>
+        )}
         </div>
     );
 };

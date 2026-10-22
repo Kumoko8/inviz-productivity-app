@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+import usePixelRegistry from "../../hooks/usePixelRegistry";
+import { findCharacter } from "../pixels/pixelRegistry";
+import { abilityForCompanion, ABILITY_LABELS } from "../pixels/pixelAbilities";
 
 export interface CharacterOption {
     id: string;
@@ -20,6 +23,8 @@ export interface CharacterOption {
     woundedAnimations?: string[];
     transformThresholds?: number[];
     transformIndex?: number;
+    pixelCharacters?: Record<string, number>; // owned pixel characters (id -> count)
+    companionId?: string; // pixel companion chosen for this training session
 }
 
 interface Props {
@@ -31,7 +36,9 @@ interface Props {
 const MAX_SELECT = 3;
 
 const TrainingCharacterSelect: React.FC<Props> = ({ characters, onConfirm, onBack }) => {
+    usePixelRegistry();
     const [search, setSearch] = useState("");
+    const [companions, setCompanions] = useState<Record<string, string>>({});
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
     const filtered = characters.filter(c =>
@@ -47,7 +54,9 @@ const TrainingCharacterSelect: React.FC<Props> = ({ characters, onConfirm, onBac
     };
 
     const handleConfirm = () => {
-        const sel = characters.filter(c => selectedIds.includes(c.id));
+        const sel = characters
+            .filter(c => selectedIds.includes(c.id))
+            .map(c => ({ ...c, companionId: companions[c.id] || undefined }));
         onConfirm(sel);
     };
 
@@ -74,9 +83,10 @@ const TrainingCharacterSelect: React.FC<Props> = ({ characters, onConfirm, onBac
                 {filtered.map(c => {
                     const isSelected = selectedIds.includes(c.id);
                     const isDisabled = !isSelected && selectedIds.length >= MAX_SELECT;
+                    const ownedPixels = Object.keys(c.pixelCharacters ?? {}).filter(pid => (c.pixelCharacters?.[pid] ?? 0) > 0);
                     return (
+                        <div key={c.id} className="flex flex-col gap-1">
                         <button
-                            key={c.id}
                             onClick={() => toggle(c.id)}
                             disabled={isDisabled}
                             className={`flex items-center gap-3 px-3 py-2 rounded-lg border-2 transition text-left
@@ -107,6 +117,24 @@ const TrainingCharacterSelect: React.FC<Props> = ({ characters, onConfirm, onBac
                                 {isSelected && <span className="text-white text-xs leading-none">✓</span>}
                             </div>
                         </button>
+                        {isSelected && (
+                            <label className="flex items-center gap-2 px-3 text-xs text-gray-500">
+                                Companion
+                                <select
+                                    value={companions[c.id] ?? ""}
+                                    onChange={e => setCompanions(prev => ({ ...prev, [c.id]: e.target.value }))}
+                                    disabled={ownedPixels.length === 0}
+                                    className="flex-1 border rounded px-2 py-1 text-xs text-gray-700 disabled:opacity-50"
+                                >
+                                    <option value="">{ownedPixels.length === 0 ? "None owned — going alone" : "Go alone"}</option>
+                                    {ownedPixels.map(pid => <option key={pid} value={pid}>{findCharacter(pid)?.name ?? pid}</option>)}
+                                </select>
+                            </label>
+                        )}
+                        {isSelected && abilityForCompanion(companions[c.id]) && (
+                            <div className="px-3 text-[11px] text-purple-600">✨ {ABILITY_LABELS[abilityForCompanion(companions[c.id])!]}</div>
+                        )}
+                        </div>
                     );
                 })}
             </div>

@@ -739,6 +739,7 @@ const Dashboard: React.FC = () => {
                 woundedAnimations: woundedAnims.length ? woundedAnims : undefined,
                 transformThresholds: (uc.transformThresholds ?? ch?.transformThresholds ?? []) as number[],
                 transformIndex: transformIdx,
+                pixelCharacters: (uc.pixelCharacters ?? ch?.pixelCharacters ?? {}) as Record<string, number>,
               };
             });
           })()}

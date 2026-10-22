@@ -1,6 +1,10 @@
 import React, { useState } from "react";
 import { TrainingCharacterState } from "./TrainingCharacterCard";
 import { SubtopicLevel } from "../../utils/trainingUtils";
+import { ABILITY_CONFIG, abilityForCompanion } from "../pixels/pixelAbilities";
+
+const xpMultiplierFor = (companionId?: string) =>
+    abilityForCompanion(companionId) === 'animals' ? ABILITY_CONFIG.animalXpMultiplier : 1;
 
 interface CharSummary {
     character: TrainingCharacterState;
@@ -45,7 +49,7 @@ const TrainingVictorySummary: React.FC<Props> = ({ summaries, levelBonus, subtop
         const xpMap: Record<string, number> = {};
         for (const { character, correct, total } of summaries) {
             if (!awarded[character.id]) {
-                xpMap[character.id] = calcXP(character.level, correct, total, levelBonus);
+                xpMap[character.id] = calcXP(character.level, correct, total, levelBonus, conditionalXP) * xpMultiplierFor(character.companionId);
             }
         }
         onAwardAllAndReplay(xpMap);
@@ -68,7 +72,7 @@ const TrainingVictorySummary: React.FC<Props> = ({ summaries, levelBonus, subtop
 
             <div className="flex flex-col gap-2 w-full">
                 {summaries.map(({ character, correct, total }) => {
-                    const xpEarned = calcXP(character.level, correct, total, levelBonus, conditionalXP);
+                    const xpEarned = calcXP(character.level, correct, total, levelBonus, conditionalXP) * xpMultiplierFor(character.companionId);
                     const isAwarded = !!awarded[character.id];
                     return (
                         <button
