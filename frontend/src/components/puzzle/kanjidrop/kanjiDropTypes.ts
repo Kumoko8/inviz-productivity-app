@@ -4,7 +4,7 @@ import type { TileDefExt } from '../KanjiDropData';
 // ─── Constants ────────────────────────────────────────────────────────────────
 export const DROPPABLE_IDS = ['dot', 'hline', 'vline', 'cstroke', 'bend', 'benthook','downstroke', 'hook', 'gun','rbend',];
 
-export const COLS = 7;
+export const COLS = 12;
 export const ROWS = 9;
 export const CELL = 48;
 export const CANVAS_W = COLS * CELL;

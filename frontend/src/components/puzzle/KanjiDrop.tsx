@@ -9,7 +9,7 @@
 
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import type { PuzzleCharacterOption } from './PuzzleMode';
-import { TARGET_POOL } from './KanjiDropData';
+import { TARGET_POOL, MERGES } from './KanjiDropData';
 export type { TileDef, TileDefExt } from './KanjiDropData';
 import { useUser } from '../../context/UserContext';
 import { loadCustomKanjis, saveCustomKanjis, loadGoalGroups, saveGoalGroups } from '../../services/kanjiDropService';
@@ -65,16 +65,16 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
     const [mergeFlash, setMergeFlash] = useState<{ char: string; meaning: string } | null>(null);
     const [selectedTile, setSelectedTile] = useState<{ char: string; meaning: string; color: string; textColor: string } | null>(null);
 
+    const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
+
     const [goalListOpen, setGoalListOpen] = useState(true);
     const [goalsExpanded, setGoalsExpanded] = useState(false);
     const [groups, setGroups] = useState<GoalGroup[]>(() => {
         try { const s = localStorage.getItem('kd-goal-groups'); return s ? JSON.parse(s) : []; } catch { return []; }
     });
-    const [tapMode, setTapMode] = useState(() =>
-        typeof window !== 'undefined' ? window.matchMedia('(max-width: 1023px)').matches : false
-    );
+    const tapMode = true;
     const [selectedPaletteTile, setSelectedPaletteTile] = useState<string | null>(null);
-    const tapModeRef = useRef(false);
+    const tapModeRef = useRef(true);
     const selectedPaletteTileRef = useRef<string | null>(null);
     const tapHoverRef = useRef<{ cx: number; cy: number } | null>(null);
 
@@ -392,14 +392,7 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
         return () => cancelAnimationFrame(animId);
     }, [phase]);
 
-    useEffect(() => { tapModeRef.current = tapMode; }, [tapMode]);
     useEffect(() => { selectedPaletteTileRef.current = selectedPaletteTile; }, [selectedPaletteTile]);
-    useEffect(() => {
-        const mq = window.matchMedia('(max-width: 1023px)');
-        const handler = (e: MediaQueryListEvent) => setTapMode(e.matches);
-        mq.addEventListener('change', handler);
-        return () => mq.removeEventListener('change', handler);
-    }, []);
 
     const getCanvasPos = (e: React.PointerEvent<HTMLCanvasElement> | PointerEvent) => {
         const canvas = canvasRef.current!;
@@ -465,7 +458,7 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
             const { col: sc, row: sr } = drag.source;
             if (sc === gp.col && sr === gp.row) {
                 const tile = lookupTile(drag.tileId);
-                if (tile) setSelectedTile(tile);
+                if (tile) { setSelectedTile(tile); setSelectedTileId(drag.tileId); }
                 return;
             }
             grid[sr][sc] = dest ? { tileId: dest.tileId } : null;
@@ -529,6 +522,7 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
         mergeAnimsRef.current = [];
         dragRef.current = null;
         setSelectedTile(null);
+        setSelectedTileId(null);
         dirtyRef.current = true;
     }, []);
 
@@ -539,6 +533,7 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
         solvedCountRef.current = 0;
         dragRef.current = null;
         setSelectedTile(null);
+        setSelectedTileId(null);
         setScore(0);
         setSolvedCount(0);
         pickNewTarget();
@@ -624,12 +619,60 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
     // ─── playing screen ───────────────────────────────────────────────────────
     const targetDef = lookupTile(targetId);
 
+    const handleSelectKanji = (id: string) => {
+        const def = lookupTile(id);
+        if (!def) return;
+        setSelectedTile(def);
+        setSelectedTileId(id);
+    };
+
+    const selectedRecipe = (() => {
+        if (!selectedTileId) return null;
+        const custom = customKanjis.find(e => e.id === selectedTileId);
+        if (custom?.recipe?.a) {
+            const { a, b, c, d, xp } = custom.recipe;
+            return { a, ingredients: [b, c, d].filter(x => x !== ''), xp };
+        }
+        const row = MERGES.find(m => m[4] === selectedTileId);
+        if (!row) return null;
+        return { a: row[0], ingredients: [row[1], row[2], row[3]].filter(x => x !== ''), xp: row[5] };
+    })();
+
+    const renderRecipeChips = () => {
+        if (!selectedRecipe) return null;
+        const chip = (id: string, key: string) => {
+            const d = lookupTile(id);
+            if (!d) return <span key={key} className="text-gray-600 italic text-xs">{id}</span>;
+            return (
+                <span key={key} title={d.meaning} className="inline-flex flex-col items-center gap-0.5" style={{ maxWidth: 64 }}>
+                    <span
+                        className="inline-flex items-center justify-center font-bold"
+                        style={{ minWidth: 30, height: 30, padding: '0 4px', background: d.color, color: d.textColor, fontFamily: 'serif', fontSize: 16, borderRadius: 8 }}>
+                        {d.char}
+                    </span>
+                    <span className="text-gray-400 text-center leading-tight" style={{ fontSize: 9 }}>{d.meaning}</span>
+                </span>
+            );
+        };
+        return (
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
+                {chip(selectedRecipe.a, 'a')}
+                {selectedRecipe.ingredients.map((ing, i) => (
+                    <React.Fragment key={i}><span className="text-gray-600 text-xs">+</span>{chip(ing, `i${i}`)}</React.Fragment>
+                ))}
+                <span className="text-gray-600 text-xs">→</span>
+                {selectedTileId && chip(selectedTileId, 'r')}
+                <span className="text-yellow-500 text-xs">+{selectedRecipe.xp}xp</span>
+            </div>
+        );
+    };
+
     return (
         <div className="fixed inset-0 z-50 bg-gray-950 flex flex-col items-center overflow-hidden select-none">
             <button onClick={onClose} className="absolute top-3 right-3 text-gray-500 hover:text-white text-lg z-10">✕</button>
 
             {/* Top bar */}
-            <div className="flex items-center gap-4 pt-3 pb-2 px-4 w-full max-w-3xl">
+            <div className="flex items-center gap-4 pt-3 pb-2 px-4 w-full max-w-6xl">
                 <div className="text-center">
                     <div className="text-xs text-gray-500 uppercase tracking-widest">Score</div>
                     <div className="text-xl font-black text-yellow-400">{score.toLocaleString()}</div>
@@ -647,7 +690,7 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
             </div>
 
             {/* Main play area: flex-col on mobile, flex-row on desktop */}
-            <div className="flex flex-col lg:flex-row flex-1 min-h-0 gap-3 px-3 overflow-y-auto w-full max-w-3xl lg:items-start">
+            <div className="flex flex-col lg:flex-row flex-1 min-h-0 gap-3 px-3 overflow-y-auto w-full max-w-6xl lg:items-start">
 
                 {/* Left column: target chip + canvas + palette */}
                 <div className={`flex-col items-center flex-shrink-0 ${goalsExpanded ? 'hidden' : 'flex'}`}>
@@ -801,6 +844,7 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
                                     {selectedTile.char}
                                 </div>
                                 <span className="text-sm text-gray-200">{selectedTile.meaning}</span>
+                                {renderRecipeChips()}
                             </>
                         ) : (
                             <span className="text-xs text-gray-500">Click a tile on the board to see its name.</span>
@@ -834,6 +878,7 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
                                 onAddCustomKanji={handleAddCustomKanji}
                                 onDeleteCustomKanji={handleDeleteCustomKanji}
                                 onUpdateCustomKanji={handleUpdateCustomKanji}
+                                onSelectKanji={handleSelectKanji}
                             />
                         </div>
                     )}
@@ -857,6 +902,7 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
                             <div className="text-sm text-gray-200">
                                 {selectedTile?.meaning ?? 'Tap a tile on the board to see its name.'}
                             </div>
+                            <div className="mt-1">{renderRecipeChips()}</div>
                         </div>
                     </div>
                     <button
@@ -877,6 +923,7 @@ const KanjiDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP }) 
                                 onAddCustomKanji={handleAddCustomKanji}
                                 onDeleteCustomKanji={handleDeleteCustomKanji}
                                 onUpdateCustomKanji={handleUpdateCustomKanji}
+                                onSelectKanji={handleSelectKanji}
                             />
                         </div>
                     )}

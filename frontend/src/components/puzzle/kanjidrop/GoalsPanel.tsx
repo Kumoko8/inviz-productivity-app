@@ -15,11 +15,12 @@ type Props = {
     onAddCustomKanji: (char: string, meaning: string, tier: number, recipe?: Recipe) => string;
     onDeleteCustomKanji: (id: string) => void;
     onUpdateCustomKanji: (id: string, char: string, meaning: string, tier: number, recipe?: Recipe) => void;
+    onSelectKanji?: (id: string) => void;
 };
 
 const GoalsPanel: React.FC<Props> = ({
     allTargetPool, targetId, groups, customKanjis,
-    onSaveGroups, onAddCustomKanji, onDeleteCustomKanji, onUpdateCustomKanji,
+    onSaveGroups, onAddCustomKanji, onDeleteCustomKanji, onUpdateCustomKanji, onSelectKanji,
 }) => {
     // ── Panel-local UI state ──────────────────────────────────────────────────
     const [isAddingGroup, setIsAddingGroup] = useState(false);
@@ -477,7 +478,7 @@ const GoalsPanel: React.FC<Props> = ({
                                     return (
                                         <div key={id} className={`rounded transition-colors ${isCurrent ? 'opacity-100' : 'opacity-50'} ${isExpanded || editingKanjiId === id ? 'bg-gray-800/60' : ''}`}>
                                             <div className="flex items-center gap-1 py-0.5 pl-2 cursor-pointer"
-                                                onClick={() => setExpandedKanjiId(isExpanded ? null : id)}>
+                                                onClick={() => { setExpandedKanjiId(isExpanded ? null : id); onSelectKanji?.(id); }}>
                                                 <span className="flex-shrink-0 flex items-center justify-center font-bold"
                                                     style={{ width: 24, height: 24, fontSize: 14, fontFamily: 'serif', background: def.color, color: def.textColor, borderRadius: 6, boxShadow: isCurrent ? `0 0 10px ${def.glow}` : 'none', outline: isCurrent ? `2px solid ${def.glow}` : 'none' }}
                                                 >{def.char}</span>
@@ -544,7 +545,7 @@ const GoalsPanel: React.FC<Props> = ({
                             return (
                                 <div key={id} className={`rounded transition-colors ${isCurrent ? 'opacity-100' : 'opacity-50'} ${isExpanded || editingKanjiId === id ? 'bg-gray-800/60' : ''}`}>
                                     <div className="flex items-center gap-1 py-0.5 cursor-pointer"
-                                        onClick={() => setExpandedKanjiId(isExpanded ? null : id)}>
+                                        onClick={() => { setExpandedKanjiId(isExpanded ? null : id); onSelectKanji?.(id); }}>
                                         <span className="flex-shrink-0 flex items-center justify-center font-bold"
                                             style={{ width: 24, height: 24, fontSize: 14, fontFamily: 'serif', background: def.color, color: def.textColor, borderRadius: 6, boxShadow: isCurrent ? `0 0 10px ${def.glow}` : 'none', outline: isCurrent ? `2px solid ${def.glow}` : 'none' }}
                                         >{def.char}</span>
