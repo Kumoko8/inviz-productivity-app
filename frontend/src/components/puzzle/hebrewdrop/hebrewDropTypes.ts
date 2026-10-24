@@ -13,7 +13,7 @@ import type { TileDefExt } from '../KanjiDropData';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-export const COLS = 8;
+export const COLS = 12;
 export const TOTAL_ROWS = 40;   // logical grid height
 export const VISIBLE_ROWS = 9;  // rows shown in the canvas viewport
 export const CELL = 48;
@@ -25,7 +25,23 @@ export const HB_DROPPABLE_IDS: string[] = HEBREW_ALPHABET.map(l => l.id);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export interface GridCell { tileId: string; }
+// A merged word is stored in its leftmost cell with `span` > 1; the cells it covers to the
+// right hold placeholders (`spanOf` = anchor column) so nothing else can be dropped there.
+export interface GridCell { tileId: string; span?: number; spanOf?: number; }
+
+/** Clears a cell, along with the placeholder cells of a wide word anchored there. */
+export function clearGridCell(grid: (GridCell | null)[][], col: number, row: number) {
+    const cell = grid[row]?.[col];
+    if (!cell) return;
+    const span = cell.span ?? 1;
+    for (let c = col; c < col + span && c < COLS; c++) grid[row][c] = null;
+}
+
+/** Resolves any cell (including a placeholder) to the column of its word's anchor. */
+export function anchorCol(grid: (GridCell | null)[][], col: number, row: number): number {
+    const cell = grid[row]?.[col];
+    return cell && cell.spanOf !== undefined ? cell.spanOf : col;
+}
 
 export interface GoalGroup { id: string; name: string; memberIds: string[]; open: boolean; }
 
@@ -39,6 +55,7 @@ export interface MergeAnim {
 export interface DragState {
     tileId: string;
     cx: number; cy: number;
+    span?: number;
     source: 'palette' | { col: number; row: number };
 }
 
@@ -90,6 +107,7 @@ export function emptyGrid(): (GridCell | null)[][] {
 export function resolveOneHbPass(grid: (GridCell | null)[][]): {
     col: number; row: number;
     resultId: string; xp: number;
+    span: number;
     absorbedCells: [number, number][];
 } | null {
     for (let r = TOTAL_ROWS - 1; r >= 0; r--) {
@@ -98,7 +116,9 @@ export function resolveOneHbPass(grid: (GridCell | null)[][]): {
         let cur: { col: number; tileId: string }[] = [];
         for (let c = 0; c < COLS; c++) {
             const cell = grid[r][c];
-            if (cell) {
+            if (cell && cell.spanOf !== undefined) {
+                continue; // placeholder of a wide word: stays part of the run
+            } else if (cell) {
                 cur.push({ col: c, tileId: cell.tileId });
             } else {
                 if (cur.length >= 2) runs.push(cur);
@@ -122,9 +142,12 @@ export function resolveOneHbPass(grid: (GridCell | null)[][]): {
                         const absorbedCells: [number, number][] = sub.slice(1).map(
                             x => [x.col, r] as [number, number]
                         );
+                        const last = sub[sub.length - 1];
+                        const span = last.col + (grid[r][last.col]?.span ?? 1) - sub[0].col;
                         return {
                             col: sub[0].col, row: r,
                             resultId: match.result, xp: match.xp,
+                            span,
                             absorbedCells,
                         };
                     }
@@ -143,10 +166,12 @@ export function drawHbTile(
     tileId: string,
     alpha = 1,
     scale = 1,
+    span = 1,
 ) {
     const def = hbLookupTile(tileId);
     if (!def) return;
     const s = (CELL * 0.88) * scale;
+    const w = s + (span - 1) * CELL * scale; // wide words stretch across their cells
     const r = s * 0.38;
 
     ctx.save();
@@ -154,18 +179,19 @@ export function drawHbTile(
 
     // Fake glow
     const glowSize = s + 10 * scale;
+    const glowW = w + 10 * scale;
     const glowR = glowSize * 0.38;
     ctx.globalAlpha = alpha * 0.35;
     ctx.fillStyle = def.glow;
     ctx.beginPath();
-    ctx.roundRect(cx - glowSize / 2, cy - glowSize / 2, glowSize, glowSize, glowR);
+    ctx.roundRect(cx - glowW / 2, cy - glowSize / 2, glowW, glowSize, glowR);
     ctx.fill();
     ctx.globalAlpha = alpha;
 
     // Fill
     ctx.fillStyle = def.color;
     ctx.beginPath();
-    ctx.roundRect(cx - s / 2, cy - s / 2, s, s, r);
+    ctx.roundRect(cx - w / 2, cy - s / 2, w, s, r);
     ctx.fill();
 
     // Highlight gradient
@@ -174,14 +200,14 @@ export function drawHbTile(
     grad.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.roundRect(cx - s / 2, cy - s / 2, s, s, r);
+    ctx.roundRect(cx - w / 2, cy - s / 2, w, s, r);
     ctx.fill();
 
     // Border
     ctx.strokeStyle = def.glow + 'bb';
     ctx.lineWidth = 2.5 * scale;
     ctx.beginPath();
-    ctx.roundRect(cx - s / 2 + 1, cy - s / 2 + 1, s - 2, s - 2, r);
+    ctx.roundRect(cx - w / 2 + 1, cy - s / 2 + 1, w - 2, s - 2, r);
     ctx.stroke();
 
     // Text — scale font down for multi-character vocab tiles
@@ -194,7 +220,16 @@ export function drawHbTile(
                 ? Math.round(s * 0.26)
                 : Math.round(s * 0.20);
     ctx.fillStyle = def.textColor;
-    ctx.font = `bold ${fontSize}px serif`;
+    let finalSize = fontSize;
+    if (span > 1) {
+        // Make the word as large as the wider tile allows, within its height and width
+        finalSize = Math.round(s * 0.62);
+        ctx.font = `bold ${finalSize}px serif`;
+        const textW = ctx.measureText(def.char).width;
+        const maxW = w - 12 * scale;
+        if (textW > maxW) finalSize = Math.max(8, Math.floor(finalSize * maxW / textW));
+    }
+    ctx.font = `bold ${finalSize}px serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(def.char, cx, cy + 1);

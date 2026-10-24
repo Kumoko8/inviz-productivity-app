@@ -22,19 +22,19 @@ export interface HebrewLetterDef {
 type C = { color: string; textColor: string; glow: string };
 
 const PALETTE: C[] = [
-    { color: '#92400e', textColor: '#fef3c7', glow: '#d97706' }, // amber
-    { color: '#1e3a8a', textColor: '#dbeafe', glow: '#3b82f6' }, // sapphire
-    { color: '#064e3b', textColor: '#d1fae5', glow: '#10b981' }, // emerald
-    { color: '#881337', textColor: '#ffe4e6', glow: '#f43f5e' }, // crimson
-    { color: '#4c1d95', textColor: '#ede9fe', glow: '#8b5cf6' }, // violet
-    { color: '#134e4a', textColor: '#ccfbf1', glow: '#14b8a6' }, // teal
+    { color: '#45abda', textColor: '#000000', glow: '#a4dffd' }, // amber
+    { color: '#586ca3', textColor: '#000000', glow: '#3b82f6' }, // sapphire
+    { color: '#4e9582', textColor: '#000000', glow: '#7ef8d0' }, // emerald
+    { color: '#e08da6', textColor: '#000000', glow: '#ffbec9' }, // crimson
+    { color: '#b28ceb', textColor: '#000000', glow: '#8b5cf6' }, // violet
+    { color: '#fbff00', textColor: '#000000', glow: '#fff45d' }, // teal
 ];
 
 const FINAL_PALETTE: C[] = [
-    { color: '#78350f', textColor: '#fde68a', glow: '#b45309' }, // dark amber  (final-mem, final-qof area)
-    { color: '#172554', textColor: '#bfdbfe', glow: '#1d4ed8' }, // dark blue   (final-nun)
-    { color: '#022c22', textColor: '#a7f3d0', glow: '#059669' }, // dark emerald (final-tsadi)
-    { color: '#3b0764', textColor: '#e9d5ff', glow: '#6d28d9' }, // dark violet (final-kaf, final-pe)
+    { color: '#7fd78f', textColor: '#000000', glow: '#acf786' }, // dark amber  (final-mem, final-qof area)
+    { color: '#bc61a1', textColor: '#000000', glow: '#fc89f6' }, // dark blue   (final-nun)
+    { color: '#61e7c8', textColor: '#000000', glow: '#99fcdd' }, // dark emerald (final-tsadi)
+    { color: '#ffdb4d', textColor: '#000000', glow: '#defd40' }, // dark violet (final-kaf, final-pe)
 ];
 
 function p(idx: number): C { return PALETTE[idx % PALETTE.length]; }

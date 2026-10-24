@@ -15,7 +15,7 @@ import { useUser } from '../../context/UserContext';
 import { CHAR_TO_LETTER, STANDARD_LETTERS, FINAL_LETTERS } from './HebrewDropData';
 import {
     HB_RUNTIME_TILES, HB_RUNTIME_MERGE_MAP,
-    COLS, TOTAL_ROWS, VISIBLE_ROWS, CELL, CANVAS_W, CANVAS_H,
+    COLS, TOTAL_ROWS, clearGridCell, anchorCol, VISIBLE_ROWS, CELL, CANVAS_W, CANVAS_H,
     hbLookupTile, emptyGrid, resolveOneHbPass, drawHbTile, makeTile,
     type GoalGroup, type MergeAnim, type DragState, type GridCell, type GamePhase,
 } from './hebrewdrop/hebrewDropTypes';
@@ -167,21 +167,24 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
         let pass;
         let earned = 0;
         while ((pass = resolveOneHbPass(grid)) !== null && s-- > 0) {
-            if (!hbLookupTile(pass.resultId)) { grid[pass.row][pass.col] = null; break; }
-            const { col: mc, row: mr, resultId, xp, absorbedCells } = pass;
+            if (!hbLookupTile(pass.resultId)) { clearGridCell(grid, pass.col, pass.row); break; }
+            const { col: mc, row: mr, resultId, xp, absorbedCells, span } = pass;
             for (const [nc, nr] of absorbedCells) {
                 const absDef = hbLookupTile(grid[nr][nc]!.tileId);
                 if (absDef) {
                     const { cx, cy } = cellCenter(nc, nr);
                     mergeAnimsRef.current.push({ type: 'absorbed', x: cx, y: cy, color: absDef.color, textColor: absDef.textColor, glow: absDef.glow, char: absDef.char, startTime: now + timeOffset, dur: 550 });
                 }
-                grid[nr][nc] = null;
+                clearGridCell(grid, nc, nr);
             }
-            grid[mr][mc] = { tileId: resultId };
+            clearGridCell(grid, mc, mr);
+            grid[mr][mc] = span > 1 ? { tileId: resultId, span } : { tileId: resultId };
+            for (let c = mc + 1; c < mc + span; c++) grid[mr][c] = { tileId: '', spanOf: mc };
             const resDef = hbLookupTile(resultId);
             earned += xp * absorbedCells.length;
             if (resDef) {
-                const { cx, cy } = cellCenter(mc, mr);
+                const { cx: cx0, cy } = cellCenter(mc, mr);
+                const cx = cx0 + (span - 1) * CELL / 2;
                 mergeAnimsRef.current.push({ type: 'pulse', x: cx, y: cy, color: resDef.glow, textColor: resDef.textColor, glow: resDef.glow, char: resDef.char, startTime: now + timeOffset, dur: 550 });
                 setMergeFlash({ char: resDef.char, meaning: resDef.meaning });
                 setTimeout(() => setMergeFlash(null), 1500);
@@ -213,11 +216,16 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
         if (gridCanvasRef.current) ctx.drawImage(gridCanvasRef.current, 0, 0);
 
         // Drop-target highlight
-        const highlightGp = dragRef.current
+        let highlightGp = dragRef.current
             ? pixelToGrid(dragRef.current.cx, dragRef.current.cy)
             : (tapHoverRef.current && selectedPaletteTileRef.current)
                 ? pixelToGrid(tapHoverRef.current.cx, tapHoverRef.current.cy)
                 : null;
+        const dragSpan = dragRef.current?.span ?? 1;
+        if (highlightGp && dragRef.current) {
+            const dc = Math.max(0, Math.min(COLS - dragSpan, Math.round(dragRef.current.cx / CELL - dragSpan / 2)));
+            highlightGp = { ...highlightGp, col: dc };
+        }
         if (highlightGp) {
             const canvasR = highlightGp.row - sr;
             if (canvasR >= 0 && canvasR < VISIBLE_ROWS) {
@@ -228,7 +236,7 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
                     ? hDef.glow + '33'
                     : 'rgba(217,119,6,0.12)';
                 ctx.beginPath();
-                ctx.roundRect(highlightGp.col * CELL + 3, canvasR * CELL + 3, CELL - 6, CELL - 6, 12);
+                ctx.roundRect(highlightGp.col * CELL + 3, canvasR * CELL + 3, CELL * dragSpan - 6, CELL - 6, 12);
                 ctx.fill();
             }
         }
@@ -241,9 +249,9 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
             if (!row) continue;
             for (let c = 0; c < COLS; c++) {
                 const cell = row[c];
-                if (!cell) continue;
+                if (!cell || cell.spanOf !== undefined) continue;
                 if (drag?.source !== 'palette' && typeof drag?.source === 'object' && drag.source.col === c && drag.source.row === r) continue;
-                drawHbTile(ctx, c * CELL + CELL / 2, (r - sr) * CELL + CELL / 2, cell.tileId);
+                drawHbTile(ctx, c * CELL + (cell.span ?? 1) * CELL / 2, (r - sr) * CELL + CELL / 2, cell.tileId, 1, 1, cell.span ?? 1);
             }
         }
 
@@ -292,7 +300,7 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
             return true;
         });
 
-        if (drag) drawHbTile(ctx, drag.cx, drag.cy, drag.tileId, 0.88, 1.12);
+        if (drag) drawHbTile(ctx, drag.cx, drag.cy, drag.tileId, 0.88, 1.12, drag.span ?? 1);
     }, []);
 
     useEffect(() => { drawRef.current = draw; }, [draw]);
@@ -359,18 +367,18 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
     }, []);
 
     const handleCanvasPointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
-        if (tapModeRef.current) return;
         e.preventDefault();
         const { cx, cy } = getCanvasPos(e);
         const gp = pixelToGrid(cx, cy);
         if (!gp || !gridRef.current[gp.row]?.[gp.col]) return;
-        const cell = gridRef.current[gp.row][gp.col]!;
-        dragRef.current = { tileId: cell.tileId, cx, cy, source: { col: gp.col, row: gp.row } };
+        const ac = anchorCol(gridRef.current, gp.col, gp.row);
+        const cell = gridRef.current[gp.row][ac]!;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        dragRef.current = { tileId: cell.tileId, cx, cy, span: cell.span ?? 1, source: { col: ac, row: gp.row } };
     }, []);
 
     const handleCanvasPointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
-        if (tapModeRef.current) { tapHoverRef.current = getCanvasPos(e); return; }
-        if (!dragRef.current) return;
+        if (!dragRef.current) { if (tapModeRef.current) tapHoverRef.current = getCanvasPos(e); return; }
         e.preventDefault();
         const { cx, cy } = getCanvasPos(e);
         dragRef.current = { ...dragRef.current, cx, cy };
@@ -397,7 +405,22 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
         const gp = pixelToGrid(cx, cy);
         if (!gp) return;
         const grid = gridRef.current;
+        const span = drag.span ?? 1;
+        if (span > 1) {
+            // Words snap to the nearest span-wide slot; the slot must be free (own cells excepted)
+            const { col: sc, row: sr } = drag.source as { col: number; row: number };
+            const col = Math.max(0, Math.min(COLS - span, Math.round(cx / CELL - span / 2)));
+            clearGridCell(grid, sc, sr);
+            let free = true;
+            for (let c = col; c < col + span; c++) if (grid[gp.row][c]) free = false;
+            const tc = free ? col : sc, tr = free ? gp.row : sr;
+            grid[tr][tc] = { tileId: drag.tileId, span };
+            for (let c = tc + 1; c < tc + span; c++) grid[tr][c] = { tileId: '', spanOf: tc };
+            resolveMerges();
+            return;
+        }
         const dest = grid[gp.row]?.[gp.col];
+        if (dest && (dest.span || dest.spanOf !== undefined)) return; // can't drop onto a word
         if (drag.source !== 'palette' && typeof drag.source === 'object') {
             const { col: sc, row: sr } = drag.source;
             if (sc === gp.col && sr === gp.row) return;
@@ -508,9 +531,9 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
         return (
             <div className="fixed inset-0 z-50 bg-[#0d0a04] flex flex-col items-center justify-center p-6">
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">✕</button>
-                <div className="text-7xl mb-3 select-none" style={{ fontFamily: 'serif', color: '#d97706', textShadow: '0 0 30px #b45309' }}>א</div>
+                <div className="text-7xl mb-3 select-none" style={{ fontFamily: 'serif', color: '#ffffff', textShadow: '0 0 30px #ffffff' }}>א</div>
                 <h2 className="text-2xl font-bold text-amber-200 mb-1">Hebrew Builder</h2>
-                <p className="text-amber-500/70 text-sm mb-2 text-center max-w-xs">
+                <p className="text-white text-sm mb-2 text-center max-w-xs">
                     {tapMode
                         ? 'Tap a letter tile, then tap the board to place it. Build words across each row, right-to-left.'
                         : 'Drag Hebrew letters onto the board row by row. Scroll down for more lines. Letters placed in sequence auto-merge into the word!'}
@@ -525,7 +548,7 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
                             id="hd-char-select"
                             value={selectedCharId ?? allCharacters[0].id}
                             onChange={e => setSelectedCharId(e.target.value)}
-                            className="w-full max-w-xs mb-6 px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-amber-100 text-sm focus:outline-none focus:border-amber-500"
+                            className="w-full max-w-xs mb-6 px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-white text-sm focus:outline-none focus:border-white"
                         >
                             {allCharacters.map(c => (
                                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -534,7 +557,7 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
                     </>
                 )}
                 <button onClick={startGame}
-                    className="px-8 py-3 bg-gradient-to-r from-amber-700 to-yellow-600 hover:from-amber-600 hover:to-yellow-500 text-white rounded-2xl font-bold text-lg shadow-lg shadow-amber-900/40 transition-all">
+                    className="px-8 py-3 bg-gradient-to-r from-pink-700 to-yellow-600 hover:from-amber-600 hover:to-yellow-500 text-white rounded-2xl font-bold text-lg shadow-lg shadow-amber-900/40 transition-all">
                     Start Building
                 </button>
                 {vocabWords.length === 0 && (
@@ -554,11 +577,11 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
 
             <div className="flex items-center gap-4 pt-3 pb-2 px-4 w-full max-w-3xl">
                 <div className="text-center">
-                    <div className="text-xs text-amber-800 uppercase tracking-widest">Score</div>
-                    <div className="text-xl font-black text-amber-400">{score.toLocaleString()}</div>
+                    <div className="text-xs text-white uppercase tracking-widest">Score</div>
+                    <div className="text-xl font-black text-white">{score.toLocaleString()}</div>
                 </div>
                 <div className="text-center">
-                    <div className="text-xs text-amber-800 uppercase tracking-widest">Formed</div>
+                    <div className="text-xs text-white uppercase tracking-widest">Formed</div>
                     <div className="text-xl font-black text-emerald-400">{solvedCount}</div>
                 </div>
                 <button onClick={clearBoard} className="ml-auto text-xs px-3 py-1 bg-gray-900 hover:bg-gray-800 text-gray-400 rounded-lg border border-gray-800 transition">Clear</button>
@@ -569,15 +592,15 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
                 <div className="flex flex-col items-center flex-shrink-0">
                     {/* Target chip */}
                     {targetDef ? (
-                        <div className="flex items-center gap-3 px-4 py-2 bg-gray-900/80 rounded-2xl border border-amber-900/40 w-full mb-1">
-                            <div className="text-xs text-amber-700 uppercase tracking-widest whitespace-nowrap">Target</div>
+                        <div className="flex items-center gap-3 px-4 py-2 bg-gray-900/80 rounded-2xl border border-gray-800 w-full mb-1">
+                            <div className="text-xs text-white uppercase tracking-widest whitespace-nowrap">Target</div>
                             <div className="flex items-center justify-center rounded-xl font-bold flex-shrink-0"
                                 style={{ width: 44, height: 44, background: targetDef.color, color: targetDef.textColor, fontSize: 18, fontFamily: 'serif', boxShadow: `0 0 18px ${targetDef.glow}88`, borderRadius: 12 }}>
                                 {targetDef.char}
                             </div>
                             <div>
                                 <div className="text-white font-semibold text-sm" dir="rtl" style={{ fontFamily: 'serif' }}>{targetDef.char}</div>
-                                {targetEntry?.transliteration && <div className="text-amber-500/70 text-xs italic">{targetEntry.transliteration}</div>}
+                                {targetEntry?.transliteration && <div className="text-white text-xs italic">{targetEntry.transliteration}</div>}
                                 <div className="text-gray-400 text-xs leading-tight">{targetDef.meaning}</div>
                             </div>
                         </div>
@@ -590,7 +613,7 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
                     {/* Canvas + scroll controls */}
                     <div className="relative flex-shrink-0">
                         <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H}
-                            className="rounded-xl border border-amber-900/20 touch-none cursor-grab active:cursor-grabbing"
+                            className="rounded-xl border border-white touch-none cursor-grab active:cursor-grabbing"
                             style={{ maxWidth: '100%', maxHeight: '50vh', objectFit: 'contain' }}
                             onWheel={handleWheel}
                             onPointerDown={handleCanvasPointerDown}
@@ -602,10 +625,10 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
                         {/* Scroll buttons (right side) */}
                         <div className="absolute right-0 top-0 bottom-0 flex flex-col justify-between py-1 -mr-7">
                             <button onClick={() => setScrollRow(scrollRowRef.current - 1)}
-                                className="w-6 h-6 flex items-center justify-center rounded bg-gray-900/80 text-amber-700 hover:text-amber-400 hover:bg-gray-800 transition text-xs">▲</button>
-                            <div className="text-center text-amber-900/50 text-xs" style={{ writingMode: 'vertical-rl' }}>row {scrollRow + 1}</div>
+                                className="w-6 h-6 flex items-center justify-center rounded bg-gray-900/80 text-white hover:text-yellow-400 hover:bg-gray-800 transition text-xs">▲</button>
+                            <div className="text-center text-white text-xs" style={{ writingMode: 'vertical-rl' }}>row {scrollRow + 1}</div>
                             <button onClick={() => setScrollRow(scrollRowRef.current + 1)}
-                                className="w-6 h-6 flex items-center justify-center rounded bg-gray-900/80 text-amber-700 hover:text-amber-400 hover:bg-gray-800 transition text-xs">▼</button>
+                                className="w-6 h-6 flex items-center justify-center rounded bg-gray-900/80 text-white hover:text-yellow-400 hover:bg-gray-800 transition text-xs">▼</button>
                         </div>
                         {mergeFlash && (
                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -619,7 +642,7 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
 
                     {/* Hebrew alphabet palette */}
                     <div className="w-full mt-3">
-                        <div className="text-xs text-amber-800/60 uppercase tracking-widest mb-1.5 text-center">
+                        <div className="text-xs text-white uppercase tracking-widest mb-1.5 text-center">
                             {tapMode ? 'Tap a letter · tap the board · scroll for more rows' : 'Drag letters across each row · scroll with wheel'}
                         </div>
                         <div className="flex flex-wrap gap-1.5 justify-center mb-1">
@@ -638,7 +661,7 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
                             })}
                         </div>
                         <div className="flex flex-wrap gap-1.5 justify-center mb-1 items-center">
-                            <span className="text-amber-800/50 text-xs">Finals:</span>
+                            <span className="text-white text-xs">Finals:</span>
                             {FINAL_LETTERS.map(letter => {
                                 const isSelected = tapMode && selectedPaletteTile === letter.id;
                                 return (
@@ -653,7 +676,7 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
                                 );
                             })}
                         </div>
-                        <div className="text-xs text-amber-900/50 text-center pb-1">
+                        <div className="text-xs text-white text-center pb-1">
                             Letters placed consecutively in a row auto-merge when the sequence matches a recipe
                         </div>
                     </div>
@@ -662,7 +685,7 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
                 {/* Desktop sidebar */}
                 <div className={`hidden lg:flex flex-col flex-shrink-0 self-stretch overflow-hidden transition-all duration-200 ${goalListOpen ? 'w-52' : 'w-8'}`}>
                     <div className="flex items-center gap-1 pt-1 mb-1">
-                        {goalListOpen && <span className="text-xs text-amber-800 uppercase tracking-widest flex-1">Vocab</span>}
+                        {goalListOpen && <span className="text-xs text-white uppercase tracking-widest flex-1">Vocab</span>}
                         <button onClick={() => setGoalListOpen(o => !o)} className="flex items-center justify-center w-6 h-6 rounded text-gray-600 hover:text-white hover:bg-gray-800 transition flex-shrink-0" title={goalListOpen ? 'Hide' : 'Show'}>
                             <span style={{ fontSize: 10 }}>{goalListOpen ? '▶' : '◀'}</span>
                         </button>
@@ -677,7 +700,7 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
 
                 {/* Mobile panel */}
                 <div className="lg:hidden w-full flex-shrink-0 pb-4">
-                    <button onClick={() => setGoalListOpen(o => !o)} className="flex items-center gap-2 w-full px-3 py-2 bg-gray-900/80 border border-amber-900/30 rounded-2xl text-xs text-amber-700 hover:text-amber-400 transition">
+                    <button onClick={() => setGoalListOpen(o => !o)} className="flex items-center gap-2 w-full px-3 py-2 bg-gray-900/80 border border-white rounded-2xl text-xs text-white hover:text-yellow-400 transition">
                         <span className="uppercase tracking-widest flex-1 text-left">Vocab Words</span>
                         <span style={{ fontSize: 10 }}>{goalListOpen ? '▲' : '▼'}</span>
                     </button>
