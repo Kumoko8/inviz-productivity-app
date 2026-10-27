@@ -6,8 +6,8 @@ import { NonogramGrid } from './NonogramGrid';
 import PuzzleCharacterCard from './PuzzleCharacterCard';
 import { ColoringMode } from '../coloring/ColoringMode';
 import SudokuGame from './SudokuGame';
-import DrawnSword from './DrawnSword';
 import KanjiDrop from './KanjiDrop';
+import RainbowBubble from './RainbowBubble';
 import BuriedTreasure from './BuriedTreasure';
 import HebrewDrop from './HebrewDrop';
 import {
@@ -88,6 +88,7 @@ export const PuzzleMode: React.FC<PuzzleModeProps> = ({
     const [showSudoku, setShowSudoku] = useState(false);
     const [showDrawnSword, setShowDrawnSword] = useState(false);
     const [showKanjiDrop, setShowKanjiDrop] = useState(false);
+    const [showRainbowBubble, setShowRainbowBubble] = useState(false);
     const [showBuriedTreasure, setShowBuriedTreasure] = useState(false);
     const [showHebrewDrop, setShowHebrewDrop] = useState(false);
 
@@ -378,6 +379,16 @@ export const PuzzleMode: React.FC<PuzzleModeProps> = ({
                         <div className="text-sm text-gray-500 mt-1">Merge radicals </div>
                     </button>
                     <button
+                        onClick={() => setShowRainbowBubble(true)}
+                        className="py-6 rounded-2xl border-2 border-purple-700 bg-gray-900 hover:bg-purple-900/30 hover:border-purple-400 transition-all text-left px-6 group"
+                    >
+                        <div className="text-2xl mb-2">🫧</div>
+                        <div className="text-lg font-bold text-white group-hover:text-purple-300">
+                            Rainbow Bubble
+                        </div>
+                        <div className="text-sm text-gray-500 mt-1">Draw your own tiles &amp; merge recipes</div>
+                    </button>
+                    <button
                         onClick={() => setShowDrawnSword(true)}
                         className="py-6 rounded-2xl border-2 border-cyan-700 bg-gray-900 hover:bg-cyan-900/30 hover:border-cyan-400 transition-all text-left px-6 group"
                     >
@@ -418,22 +429,21 @@ export const PuzzleMode: React.FC<PuzzleModeProps> = ({
                         }}
                     />
                 )}
-                {showDrawnSword && (
-                    <DrawnSword
-                        allCharacters={allCharacters}
-                        onAwardXP={onAwardXP}
-                        onClose={() => {
-                            setShowDrawnSword(false);
-                            setPhase('gridSubtopic');
-                        }}
-                    />
-                )}
+               
                 {showKanjiDrop && (
                     <KanjiDrop
                         allCharacters={allCharacters}
                         onAwardXP={onAwardXP}
                         onClose={() => {
                             setShowKanjiDrop(false);
+                            setPhase('gridSubtopic');
+                        }}
+                    />
+                )}
+                {showRainbowBubble && (
+                    <RainbowBubble
+                        onClose={() => {
+                            setShowRainbowBubble(false);
                             setPhase('gridSubtopic');
                         }}
                     />
