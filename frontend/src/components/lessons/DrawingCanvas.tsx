@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, useState } from "react";
+import React, { useRef, useEffect, useCallback, useState, forwardRef, useImperativeHandle } from "react";
 
 export type DrawTool = 'highlight' | 'eraser' | 'pencil';
 
@@ -12,6 +12,19 @@ interface Props {
     // keeps its drawn paths intact instead of unmounting.
     enabled?: boolean;
     undoVersion?: number;
+    /** Brush width in canvas pixels for the active tool */
+    size: number;
+    /** Previously saved markup (transparent PNG) drawn beneath new strokes */
+    baseUrl?: string;
+    /** Fired after any stroke, undo or clear so the parent can track unsaved changes */
+    onChange?: () => void;
+    /** Fired when the saved markup could not be loaded into the canvas */
+    onBaseError?: () => void;
+}
+
+export interface DrawingCanvasHandle {
+    toBlob: () => Promise<Blob | null>;
+    clear: () => void;
 }
 
 type PathRecord = {
@@ -20,16 +33,12 @@ type PathRecord = {
     opacity: number;
     isEraser: boolean;
     isPencil: boolean;
+    width: number;
 };
-
-const HIGHLIGHT_WIDTH = 28;
-const ERASER_WIDTH = 52;
-const PENCIL_WIDTH = 3;
-const PENCIL_COLOR = "#000000";
 
 // Canvas-based drawing overlay. Highlights use source-over; eraser uses
 // destination-out so it cuts holes in the highlight layer.
-const DrawingCanvas: React.FC<Props> = ({
+const DrawingCanvas = forwardRef<DrawingCanvasHandle, Props>(({
     width,
     height,
     color = "#facc15",
@@ -37,7 +46,11 @@ const DrawingCanvas: React.FC<Props> = ({
     tool,
     enabled = true,
     undoVersion = 0,
-}) => {
+    size,
+    baseUrl,
+    onChange,
+    onBaseError,
+}, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [paths, setPaths] = useState<PathRecord[]>([]);
     // Keep a ref mirroring activePath so pointer-up can read it without stale closure.
@@ -45,6 +58,19 @@ const DrawingCanvas: React.FC<Props> = ({
     const [activePath, setActivePath] = useState<PathRecord | null>(null);
     const isDrawing = useRef(false);
     const lastUndoVersion = useRef(undoVersion);
+    const [base, setBase] = useState<HTMLImageElement | null>(null);
+
+    useEffect(() => {
+        setBase(null);
+        if (!baseUrl) return;
+        let cancelled = false;
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => { if (!cancelled) setBase(img); };
+        img.onerror = () => { if (!cancelled) onBaseError?.(); };
+        img.src = baseUrl;
+        return () => { cancelled = true; };
+    }, [baseUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Re-render the canvas whenever committed or active paths change.
     useEffect(() => {
@@ -54,6 +80,7 @@ const DrawingCanvas: React.FC<Props> = ({
         if (!ctx) return;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (base) ctx.drawImage(base, 0, 0, canvas.width, canvas.height);
 
         const drawPath = (p: PathRecord) => {
             if (p.points.length < 2) return;
@@ -61,7 +88,7 @@ const DrawingCanvas: React.FC<Props> = ({
             ctx.globalCompositeOperation = p.isEraser ? "destination-out" : "source-over";
             ctx.globalAlpha = p.isEraser ? 1 : p.opacity;
             ctx.strokeStyle = p.isEraser ? "rgba(0,0,0,1)" : p.color;
-            ctx.lineWidth = p.isEraser ? ERASER_WIDTH : p.isPencil ? PENCIL_WIDTH : HIGHLIGHT_WIDTH;
+            ctx.lineWidth = p.width;
             ctx.lineCap = "round";
             ctx.lineJoin = "round";
             ctx.beginPath();
@@ -75,7 +102,7 @@ const DrawingCanvas: React.FC<Props> = ({
 
         for (const p of paths) drawPath(p);
         if (activePath) drawPath(activePath);
-    }, [paths, activePath]);
+    }, [paths, activePath, base]);
 
     const toCanvas = useCallback(
         (e: React.PointerEvent<HTMLCanvasElement>): { x: number; y: number } => {
@@ -98,15 +125,16 @@ const DrawingCanvas: React.FC<Props> = ({
             const isPencil = tool === "pencil";
             const newPath: PathRecord = {
                 points: [pt, pt],
-                color: isPencil ? PENCIL_COLOR : color,
+                color,
                 opacity: isPencil ? 1 : opacity,
                 isEraser: tool === "eraser",
                 isPencil,
+                width: size,
             };
             activePathRef.current = newPath;
             setActivePath(newPath);
         },
-        [toCanvas, color, opacity, tool, enabled]
+        [toCanvas, color, opacity, tool, enabled, size]
     );
 
     const onPointerMove = useCallback(
@@ -129,34 +157,40 @@ const DrawingCanvas: React.FC<Props> = ({
         const ap = activePathRef.current;
         if (ap && ap.points.length >= 2) {
             setPaths((prev) => [...prev, ap]);
+            onChange?.();
         }
         activePathRef.current = null;
         setActivePath(null);
-    }, []);
+    }, [onChange]);
 
     const clearAll = useCallback(() => {
         setPaths([]);
+        setBase(null);
+        onChange?.();
         activePathRef.current = null;
         setActivePath(null);
         isDrawing.current = false;
-    }, []);
+    }, [onChange]);
+
+    useImperativeHandle(ref, () => ({
+        toBlob: () =>
+            new Promise((resolve) => {
+                const canvas = canvasRef.current;
+                if (!canvas) return resolve(null);
+                canvas.toBlob((b) => resolve(b), "image/png");
+            }),
+        clear: clearAll,
+    }), [clearAll]);
 
     useEffect(() => {
         if (undoVersion === lastUndoVersion.current) return;
         lastUndoVersion.current = undoVersion;
         setPaths((prev) => prev.slice(0, -1));
+        onChange?.();
         activePathRef.current = null;
         setActivePath(null);
         isDrawing.current = false;
     }, [undoVersion]);
-
-    useEffect(() => {
-        const handler = (e: KeyboardEvent) => {
-            if (e.key === "Escape") clearAll();
-        };
-        window.addEventListener("keydown", handler);
-        return () => window.removeEventListener("keydown", handler);
-    }, [clearAll]);
 
     return (
         <canvas
@@ -174,12 +208,10 @@ const DrawingCanvas: React.FC<Props> = ({
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
             onContextMenu={(e) => {
-                if (!enabled) return;
-                e.preventDefault();
-                clearAll();
+                if (enabled) e.preventDefault();
             }}
         />
     );
-};
+});
 
 export default DrawingCanvas;

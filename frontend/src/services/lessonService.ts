@@ -105,6 +105,8 @@ export interface EditPageInput {
     file?: File;
     caption?: string;
     customSlide?: CustomSlideSettings;
+    /** Existing annotation overlay; dropped when the image is replaced */
+    annotationPath?: string;
 }
 
 export interface UpdateLessonInput {
@@ -146,10 +148,12 @@ export async function updateLesson(
         }
         if (!path) continue;
         const caption = p.caption?.trim();
+        const annotationPath = p.file ? undefined : p.annotationPath;
         pages.push({
             storagePath: path,
             ...(caption ? { caption } : {}),
             ...(p.customSlide ? { customSlide: p.customSlide } : {}),
+            ...(annotationPath ? { annotationPath } : {}),
         });
     }
 
@@ -162,13 +166,48 @@ export async function updateLesson(
         description: description ? description : deleteField(),
     });
 
-    const kept = new Set(pages.map(p => p.storagePath));
-    const dropped = lesson.pages.map(p => p.storagePath).filter(path => !kept.has(path));
+    const kept = new Set(pages.flatMap(p => [p.storagePath, p.annotationPath]));
+    const dropped = lesson.pages
+        .flatMap(p => [p.storagePath, p.annotationPath])
+        .filter((path): path is string => !!path && !kept.has(path));
     await Promise.all(dropped.map(removeObject));
 }
 
 /** Deletes the lesson document and all of its images. */
 export async function deleteLesson(uid: string, lesson: Lesson): Promise<void> {
     await deleteDoc(doc(db, "users", uid, "lessons", lesson.id));
-    await Promise.all(lesson.pages.map(p => removeObject(p.storagePath)));
+    await Promise.all(
+        lesson.pages.flatMap(p => [p.storagePath, p.annotationPath]).filter((x): x is string => !!x).map(removeObject)
+    );
+}
+
+/**
+ * Saves (or clears, when blob is null) the handwritten markup for one page as a
+ * transparent PNG next to the original image, which is left untouched.
+ * Returns the lesson's updated pages.
+ */
+export async function saveLessonAnnotation(
+    uid: string,
+    lesson: Lesson,
+    pageIndex: number,
+    blob: Blob | null
+): Promise<LessonPage[]> {
+    const page = lesson.pages[pageIndex];
+    if (!page) throw new Error("Page not found");
+
+    let annotationPath: string | undefined;
+    if (blob) {
+        const suffix = Math.random().toString(36).slice(2, 10);
+        const base = page.storagePath.replace(/\.[^./]+$/, "");
+        annotationPath = `${base}_ink_${suffix}.png`;
+        await uploadBytes(ref(storage, annotationPath), blob, { contentType: "image/png" });
+    }
+
+    const { annotationPath: oldPath, ...rest } = page;
+    const pages = lesson.pages.map((p, i) =>
+        i === pageIndex ? { ...rest, ...(annotationPath ? { annotationPath } : {}) } : p
+    );
+    await updateDoc(doc(db, "users", uid, "lessons", lesson.id), { pages });
+    if (oldPath) await removeObject(oldPath);
+    return pages;
 }

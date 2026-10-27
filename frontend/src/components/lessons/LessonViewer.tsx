@@ -1,12 +1,24 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Lesson } from "./lessonsData";
-import DrawingCanvas, { DrawTool } from "./DrawingCanvas";
+import DrawingCanvas, { DrawTool, DrawingCanvasHandle } from "./DrawingCanvas";
 import { useLessonImages } from "../../hooks/useLessonImages";
 
 interface Props {
     lesson: Lesson;
     onClose: () => void;
+    /** Persists handwritten markup for a page; a null blob removes it. When omitted, drawing is not saved. */
+    onSaveAnnotation?: (pageIndex: number, blob: Blob | null) => Promise<void>;
 }
+
+const PEN_COLORS = [
+    { label: "Black", value: "#000000" },
+    { label: "Blue",  value: "#2563eb" },
+    { label: "Red",   value: "#dc2626" },
+    { label: "Green", value: "#16a34a" },
+];
+
+const DEFAULT_SIZES: Record<DrawTool, number> = { highlight: 28, pencil: 3, eraser: 52 };
+const MAX_SIZES: Record<DrawTool, number> = { highlight: 80, pencil: 24, eraser: 120 };
 
 const HIGHLIGHT_COLORS = [
     { label: "Yellow", value: "#facc15" },
@@ -25,14 +37,24 @@ const ZOOM_STEP = 0.25;
 // correctly because the container uses object-fit: contain.
 const CANVAS_W = 1600;
 const CANVAS_H = 1200;
+const MAX_CANVAS_SIDE = 2400;
 
-const LessonViewer: React.FC<Props> = ({ lesson, onClose }) => {
-    const [pageIndex, setPageIndex] = useState(0);
+const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) => {
+    const [pageIndex, setPageIndexRaw] = useState(0);
+    const [penColor, setPenColor] = useState(PEN_COLORS[0].value);
+    const [sizes, setSizes] = useState(DEFAULT_SIZES);
+    const [canvasDims, setCanvasDims] = useState({ w: CANVAS_W, h: CANVAS_H });
+    const [dirty, setDirty] = useState(false);
+    const [saveState, setSaveState] = useState<"idle" | "saving" | "error">("idle");
+    const [baseError, setBaseError] = useState(false);
+    // Saved markup per page, overriding what was loaded with the lesson (null = cleared)
+    const [overlays, setOverlays] = useState<Record<number, string | null>>({});
+    const canvasHandleRef = useRef<DrawingCanvasHandle>(null);
+    const dirtyRef = useRef(false);
     const [zoom, setZoom] = useState(1);
     const [drawColor, setDrawColor] = useState(HIGHLIGHT_COLORS[0].value);
     const [drawingEnabled, setDrawingEnabled] = useState(false);
     const [drawTool, setDrawTool] = useState<DrawTool>("highlight");
-    const [canvasKey, setCanvasKey] = useState<Record<number, number>>({});
     const [canvasUndoVersion, setCanvasUndoVersion] = useState<Record<number, number>>({});
     const [timerMinutes, setTimerMinutes] = useState("5");
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
@@ -60,6 +82,41 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose }) => {
     const totalPages = pages.length;
     const current = pages[pageIndex];
 
+    const markDirty = useCallback(() => { dirtyRef.current = true; setDirty(true); }, []);
+
+    // Captures the canvas synchronously (before any page change unmounts it) and uploads in the background.
+    const saveCurrent = useCallback(async (): Promise<void> => {
+        const handle = canvasHandleRef.current;
+        if (!onSaveAnnotation || !handle || !dirtyRef.current) return;
+        const index = pageIndex;
+        dirtyRef.current = false;
+        setDirty(false);
+        setSaveState("saving");
+        try {
+            const blob = await handle.toBlob();
+            if (!blob) throw new Error("Could not capture drawing");
+            setOverlays((prev) => ({ ...prev, [index]: URL.createObjectURL(blob) }));
+            await onSaveAnnotation(index, blob);
+            setSaveState("idle");
+        } catch (e) {
+            console.error(e);
+            dirtyRef.current = true;
+            setDirty(true);
+            setSaveState("error");
+        }
+    }, [onSaveAnnotation, pageIndex]);
+
+    const setPageIndex = useCallback((next: number | ((p: number) => number)) => {
+        void saveCurrent();
+        setPageIndexRaw(next);
+        setBaseError(false);
+    }, [saveCurrent]);
+
+    const handleClose = async () => {
+        await saveCurrent();
+        onClose();
+    };
+
     const resetView = useCallback(() => {
         setZoom(1);
         setPanOffset({ x: 0, y: 0 });
@@ -68,9 +125,11 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose }) => {
 
     // Reset view + drawing when the lesson changes
     useEffect(() => {
-        setPageIndex(0);
+        setPageIndexRaw(0);
         resetView();
-        setCanvasKey({});
+        setOverlays({});
+        dirtyRef.current = false;
+        setDirty(false);
         setCanvasUndoVersion({});
         setTimerRunning(false);
         setSecondsRemaining(null);
@@ -100,12 +159,12 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose }) => {
     const goNext = useCallback(() => {
         setPageIndex((p) => Math.min(p + 1, totalPages - 1));
         resetView();
-    }, [totalPages, resetView]);
+    }, [totalPages, resetView, setPageIndex]);
 
     const goPrev = useCallback(() => {
         setPageIndex((p) => Math.max(p - 1, 0));
         resetView();
-    }, [resetView]);
+    }, [resetView, setPageIndex]);
 
     // Pan pointer handlers — active only when drawing is disabled
     const onPanDown = useCallback(
@@ -198,8 +257,7 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose }) => {
         panOffsetRef.current = { x: 0, y: 0 };
     }, []);
 
-    const clearPageDrawing = () =>
-        setCanvasKey((prev) => ({ ...prev, [pageIndex]: (prev[pageIndex] ?? 0) + 1 }));
+    const clearPageDrawing = () => canvasHandleRef.current?.clear();
 
     const undoPageDrawing = () =>
         setCanvasUndoVersion((prev) => ({ ...prev, [pageIndex]: (prev[pageIndex] ?? 0) + 1 }));
@@ -234,7 +292,7 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose }) => {
                 {/* Left: title + page counter */}
                 <div className="flex items-center gap-3 min-w-0">
                     <button
-                        onClick={onClose}
+                        onClick={handleClose}
                         className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm font-medium"
                     >
                         ← Back
@@ -377,6 +435,29 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose }) => {
                             >
                                 🧹
                             </button>
+                            {/* Brush size */}
+                            <input
+                                type="range"
+                                min={1}
+                                max={MAX_SIZES[drawTool]}
+                                value={sizes[drawTool]}
+                                onChange={(e) => setSizes((prev) => ({ ...prev, [drawTool]: Number(e.target.value) }))}
+                                className="w-24"
+                                title={`Brush size: ${sizes[drawTool]}`}
+                                aria-label="Brush size"
+                            />
+                            {drawTool === "pencil" && PEN_COLORS.map((c) => (
+                                <button
+                                    key={c.value}
+                                    onClick={() => setPenColor(c.value)}
+                                    className="w-6 h-6 rounded-full border-2 transition"
+                                    style={{
+                                        backgroundColor: c.value,
+                                        borderColor: penColor === c.value ? "#fff" : "#6b7280",
+                                    }}
+                                    title={c.label}
+                                />
+                            ))}
                             {/* Color swatches — only shown for highlight tool */}
                             {drawTool === "highlight" && HIGHLIGHT_COLORS.map((c) => (
                                 <button
@@ -404,6 +485,16 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose }) => {
                             >
                                 Clear
                             </button>
+                            {onSaveAnnotation && (
+                                <button
+                                    onClick={() => void saveCurrent()}
+                                    disabled={!dirty || saveState === "saving"}
+                                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-medium disabled:opacity-50"
+                                    title="Save your writing on this page so it stays next time"
+                                >
+                                    {saveState === "saving" ? "Saving…" : saveState === "error" ? "Retry save" : dirty ? "Save" : "Saved"}
+                                </button>
+                            )}
                         </>
                     )}
                 </div>
@@ -460,17 +551,29 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose }) => {
                         alt={current.caption ?? `Page ${pageIndex + 1}`}
                         className="block max-w-full max-h-[calc(100vh-100px)] object-contain rounded shadow-2xl"
                         draggable={false}
-                        onLoad={() => setImageLoaded(true)}
+                        onLoad={(e) => {
+                            const { naturalWidth: nw, naturalHeight: nh } = e.currentTarget;
+                            if (nw && nh) {
+                                const k = Math.min(1, MAX_CANVAS_SIDE / Math.max(nw, nh));
+                                setCanvasDims({ w: Math.round(nw * k), h: Math.round(nh * k) });
+                            }
+                            setImageLoaded(true);
+                        }}
                     />
                     {imageLoaded && (
                         <DrawingCanvas
-                            key={`canvas-${lesson.id}-${pageIndex}-${canvasKey[pageIndex] ?? 0}`}
-                            width={CANVAS_W}
-                            height={CANVAS_H}
-                            color={drawColor}
+                            ref={canvasHandleRef}
+                            key={`canvas-${lesson.id}-${pageIndex}`}
+                            width={canvasDims.w}
+                            height={canvasDims.h}
+                            color={drawTool === "pencil" ? penColor : drawColor}
                             opacity={0.38}
                             tool={drawTool}
-                            enabled={drawingEnabled}
+                            size={sizes[drawTool] * (canvasDims.w / CANVAS_W)}
+                            baseUrl={(pageIndex in overlays ? overlays[pageIndex] : current.annotationUrl) ?? undefined}
+                            onChange={markDirty}
+                            onBaseError={() => setBaseError(true)}
+                            enabled={drawingEnabled && !baseError}
                             undoVersion={canvasUndoVersion[pageIndex] ?? 0}
                         />
                     )}

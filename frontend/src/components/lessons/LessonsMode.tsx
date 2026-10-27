@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { LESSON_TOPICS, Lesson, LessonTopic } from "./lessonsData";
 import LessonViewer from "./LessonViewer";
 import CreateLessonForm from "./CreateLessonForm";
 import { useStorageUrl } from "../../hooks/useLessonImages";
-import { loadLessons, deleteLesson, type FirestoreLesson } from "../../services/lessonService";
+import { loadLessons, deleteLesson, saveLessonAnnotation, type FirestoreLesson } from "../../services/lessonService";
 import { useUser } from "../../context/UserContext";
 
 interface Props {
@@ -29,6 +29,26 @@ const LessonsMode: React.FC<Props> = ({ onClose }) => {
     const [openLesson, setOpenLesson] = useState<Lesson | null>(null);
     const [showCreate, setShowCreate] = useState(false);
     const [editLesson, setEditLesson] = useState<Lesson | null>(null);
+
+    const openLessonRef = useRef<Lesson | null>(null);
+    openLessonRef.current = openLesson;
+    const saveQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+
+    // Saves are chained so each one starts from the pages produced by the previous one.
+    const handleSaveAnnotation = useCallback((pageIndex: number, blob: Blob | null) => {
+        const run = async () => {
+            const current = openLessonRef.current;
+            if (!user || !current) return;
+            const pages = await saveLessonAnnotation(user.uid, current, pageIndex, blob);
+            const updated = { ...current, pages };
+            openLessonRef.current = updated;
+            setOpenLesson((prev) => (prev && prev.id === updated.id ? updated : prev));
+            setLessons((prev) => prev.map((l) => (l.id === updated.id ? { ...l, pages } : l)));
+        };
+        const next = saveQueueRef.current.then(run, run);
+        saveQueueRef.current = next.catch(() => undefined);
+        return next;
+    }, [user]);
 
     const handleDelete = async (lesson: Lesson) => {
         if (!user || !window.confirm(`Delete "${lesson.title}"? This cannot be undone.`)) return;
@@ -68,7 +88,7 @@ const LessonsMode: React.FC<Props> = ({ onClose }) => {
         : lessons;
 
     if (openLesson) {
-        return <LessonViewer lesson={openLesson} onClose={() => setOpenLesson(null)} />;
+        return <LessonViewer lesson={openLesson} onClose={() => setOpenLesson(null)} onSaveAnnotation={user ? handleSaveAnnotation : undefined} />;
     }
 
     return (

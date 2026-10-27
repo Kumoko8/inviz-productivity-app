@@ -23,6 +23,7 @@ async function resolveStoragePath(path: string): Promise<string> {
 export interface ResolvedPage {
     url: string;
     caption?: string;
+    annotationUrl?: string;
 }
 
 interface UseLessonImagesResult {
@@ -52,6 +53,7 @@ export function useLessonImages(lesson: Lesson): UseLessonImagesResult {
                 lesson.pages.map(async (p) => ({
                     url: await resolveStoragePath(p.storagePath),
                     caption: p.caption,
+                    annotationUrl: p.annotationPath ? await resolveStoragePath(p.annotationPath) : undefined,
                 }))
             );
 

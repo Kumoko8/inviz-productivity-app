@@ -9,6 +9,8 @@ export interface LessonPage {
     caption?: string;
     /** Source content for custom slides, allowing them to be edited after saving. */
     customSlide?: CustomSlideSettings;
+    /** Storage path of a transparent PNG holding the user's handwritten markup for this page. */
+    annotationPath?: string;
 }
 
 export interface CustomSlideSettings {

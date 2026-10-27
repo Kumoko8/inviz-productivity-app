@@ -20,6 +20,7 @@ interface PageItem {
     key: number;
     /** Existing page already in Storage */
     storagePath?: string;
+    annotationPath?: string;
     /** Newly added image, uploaded on submit */
     file?: File;
     caption: string;
@@ -50,7 +51,7 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
     const [title, setTitle] = useState(lesson?.title ?? "");
     const [description, setDescription] = useState(lesson?.description ?? "");
     const [items, setItems] = useState<PageItem[]>(
-        () => (lesson?.pages ?? []).map(p => ({ key: nextKey(), storagePath: p.storagePath, caption: p.caption ?? "", customSlide: p.customSlide }))
+        () => (lesson?.pages ?? []).map(p => ({ key: nextKey(), storagePath: p.storagePath, annotationPath: p.annotationPath, caption: p.caption ?? "", customSlide: p.customSlide }))
     );
     const [uploading, setUploading] = useState(false);
     const [progress, setProgress] = useState<UploadProgress>({ uploaded: 0, total: 0 });
@@ -103,6 +104,7 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
                         topic,
                         pages: items.map(it => ({
                             storagePath: it.storagePath,
+                            annotationPath: it.annotationPath,
                             file: it.file,
                             caption: it.caption,
                             customSlide: it.customSlide,
