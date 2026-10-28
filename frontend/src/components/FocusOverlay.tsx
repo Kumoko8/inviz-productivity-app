@@ -9,7 +9,7 @@ import {
     savePrayerRequests,
     type PrayerRequest,
 } from '../services/prayerService';
-import { focusAnimPath } from './focus/focusAnimUtils';
+import { FOCUS_ANIMATION_CYCLE, loadFocusAnimPaths, loadAnimCycleIndex, nextAnimCycleIndex } from './focus/focusAnimUtils';
 import { useFocusOrbs } from './focus/useFocusOrbs';
 import { usePrayerAward } from './focus/usePrayerAward';
 import { FocusOrbLayer } from './focus/FocusOrbLayer';
@@ -44,6 +44,8 @@ const FocusOverlay: React.FC<Props> = ({
     const uid = auth.currentUser?.uid;
 
     const [videoUrl, setVideoUrl] = useState('');
+    const [animPaths, setAnimPaths] = useState<string[]>(FOCUS_ANIMATION_CYCLE);
+    const [animIndex, setAnimIndex] = useState(loadAnimCycleIndex);
     const [loading, setLoading] = useState(true);
     const [prayMode, setPrayMode] = useState<PrayMode>(null);
     const [prayText, setPrayText] = useState('');
@@ -61,6 +63,7 @@ const FocusOverlay: React.FC<Props> = ({
         phase: 'initial' | 'overflow';
     } | null>(null);
     const prayReqTimers = useRef<number[]>([]);
+    const videoRef = useRef<HTMLVideoElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const PRAY_LEVEL_COLORS = ['#b5d3f8', '#4ade80', '#fb923c', '#a78bfa', '#f472b6', '#f8f406'];
@@ -108,16 +111,20 @@ const FocusOverlay: React.FC<Props> = ({
         onPrayerLevelUp,
     });
 
-    // Load backdrop video for current prayer level
+    // Load backdrop video; advances to the next animation after each saved prayer
     useEffect(() => {
-        const ppLvl = (selectedCharacter?.prayerLevel as number | undefined) ?? 1;
+        loadFocusAnimPaths().then(setAnimPaths);
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
         setLoading(true);
-        setVideoUrl('');
-        fetchAnimUrl(focusAnimPath(ppLvl))
-            .then(url => { if (url) setVideoUrl(url); })
+        fetchAnimUrl(animPaths[animIndex % animPaths.length])
+            .then(url => { if (!cancelled && url) setVideoUrl(url); })
             .catch(() => {})
-            .finally(() => setLoading(false));
-    }, [(selectedCharacter?.prayerLevel as number | undefined) ?? 1]);
+            .finally(() => { if (!cancelled) setLoading(false); });
+        return () => { cancelled = true; };
+    }, [animIndex, animPaths]);
 
     // Load prayer requests when the pick-request step opens
     useEffect(() => {
@@ -143,6 +150,18 @@ const FocusOverlay: React.FC<Props> = ({
     useEffect(() => {
         if (prayMode === 'type') textareaRef.current?.focus();
     }, [prayMode]);
+
+    // One-shot: play the current animation once; when it ends, queue up the next one
+    const playBackdrop = () => {
+        const v = videoRef.current;
+        if (!v) return;
+        v.currentTime = 0;
+        v.play().catch(() => {});
+    };
+
+    const handleBackdropEnded = () => {
+        setAnimIndex(i => nextAnimCycleIndex(i, animPaths.length));
+    };
 
     const savePrayer = async () => {
         if (!uid || !prayText.trim()) return;
@@ -172,6 +191,7 @@ const FocusOverlay: React.FC<Props> = ({
             }
             onPrayerSaved?.();
             await awardPrayerXP();
+            playBackdrop();
         } finally {
             setSaving(false);
             setPrayText('');
@@ -204,6 +224,7 @@ const FocusOverlay: React.FC<Props> = ({
             setPanelRefreshKey(k => k + 1);
         }
         await awardPrayerXP();
+        playBackdrop();
         spawnOrb({ imageUrl: record.dataUrl });
     };
 
@@ -276,11 +297,13 @@ const FocusOverlay: React.FC<Props> = ({
 
                 {videoUrl && (
                     <video
+                        ref={videoRef}
+                        key={videoUrl}
                         src={videoUrl}
-                        autoPlay
-                        loop
+                        preload="auto"
                         muted
                         playsInline
+                        onEnded={handleBackdropEnded}
                         className="absolute inset-0 w-full h-full object-cover"
                     />
                 )}
