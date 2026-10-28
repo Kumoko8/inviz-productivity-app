@@ -9,7 +9,7 @@ import {
     savePrayerRequests,
     type PrayerRequest,
 } from '../services/prayerService';
-import { FOCUS_ANIMATION_CYCLE, loadFocusAnimPaths, loadAnimCycleIndex, nextAnimCycleIndex } from './focus/focusAnimUtils';
+import { focusAnimPath, FOCUS_ANIMATION_CYCLE, loadFocusAnimPaths, loadAnimCycleIndex, nextAnimCycleIndex } from './focus/focusAnimUtils';
 import { useFocusOrbs } from './focus/useFocusOrbs';
 import { usePrayerAward } from './focus/usePrayerAward';
 import { FocusOrbLayer } from './focus/FocusOrbLayer';
@@ -44,6 +44,8 @@ const FocusOverlay: React.FC<Props> = ({
     const uid = auth.currentUser?.uid;
 
     const [videoUrl, setVideoUrl] = useState('');
+    const [actionUrl, setActionUrl] = useState('');
+    const [actionPlaying, setActionPlaying] = useState(false);
     const [animPaths, setAnimPaths] = useState<string[]>(FOCUS_ANIMATION_CYCLE);
     const [animIndex, setAnimIndex] = useState(loadAnimCycleIndex);
     const [loading, setLoading] = useState(true);
@@ -111,18 +113,29 @@ const FocusOverlay: React.FC<Props> = ({
         onPrayerLevelUp,
     });
 
-    // Load backdrop video; advances to the next animation after each saved prayer
+    // Idle backdrop: loops continuously, tier based on prayer level
+    const ppLevel = (selectedCharacter?.prayerLevel as number | undefined) ?? 1;
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        fetchAnimUrl(focusAnimPath(ppLevel))
+            .then(url => { if (!cancelled && url) setVideoUrl(url); })
+            .catch(() => {})
+            .finally(() => { if (!cancelled) setLoading(false); });
+        return () => { cancelled = true; };
+    }, [ppLevel]);
+
+    // Action backdrops (Storage focus/backdrops/): preload the next one in the cycle
     useEffect(() => {
         loadFocusAnimPaths().then(setAnimPaths);
     }, []);
 
     useEffect(() => {
         let cancelled = false;
-        setLoading(true);
+        setActionUrl('');
         fetchAnimUrl(animPaths[animIndex % animPaths.length])
-            .then(url => { if (!cancelled && url) setVideoUrl(url); })
-            .catch(() => {})
-            .finally(() => { if (!cancelled) setLoading(false); });
+            .then(url => { if (!cancelled && url) setActionUrl(url); })
+            .catch(() => {});
         return () => { cancelled = true; };
     }, [animIndex, animPaths]);
 
@@ -151,15 +164,17 @@ const FocusOverlay: React.FC<Props> = ({
         if (prayMode === 'type') textareaRef.current?.focus();
     }, [prayMode]);
 
-    // One-shot: play the current animation once; when it ends, queue up the next one
+    // One-shot action backdrop cuts in over the idle loop, then hands back and advances the cycle
     const playBackdrop = () => {
         const v = videoRef.current;
-        if (!v) return;
+        if (!v || !actionUrl) return;
+        setActionPlaying(true);
         v.currentTime = 0;
-        v.play().catch(() => {});
+        v.play().catch(() => setActionPlaying(false));
     };
 
     const handleBackdropEnded = () => {
+        setActionPlaying(false);
         setAnimIndex(i => nextAnimCycleIndex(i, animPaths.length));
     };
 
@@ -297,14 +312,27 @@ const FocusOverlay: React.FC<Props> = ({
 
                 {videoUrl && (
                     <video
-                        ref={videoRef}
                         key={videoUrl}
                         src={videoUrl}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="absolute inset-0 w-full h-full object-cover"
+                    />
+                )}
+                {actionUrl && (
+                    <video
+                        ref={videoRef}
+                        key={actionUrl}
+                        src={actionUrl}
                         preload="auto"
                         muted
                         playsInline
                         onEnded={handleBackdropEnded}
+                        onError={() => setActionPlaying(false)}
                         className="absolute inset-0 w-full h-full object-cover"
+                        style={{ opacity: actionPlaying ? 1 : 0, pointerEvents: 'none' }}
                     />
                 )}
 
