@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { Lesson } from "./lessonsData";
 import DrawingCanvas, { DrawTool, DrawingCanvasHandle } from "./DrawingCanvas";
 import { useLessonImages } from "../../hooks/useLessonImages";
@@ -78,7 +78,8 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
     const [imageLoaded, setImageLoaded] = useState(false);
     const imgRef = useRef<HTMLImageElement>(null);
 
-    const { pages, loading } = useLessonImages(lesson);
+    const { pages: allPages, loading } = useLessonImages(lesson);
+    const pages = useMemo(() => allPages.filter((p) => !p.hidden), [allPages]);
     const totalPages = pages.length;
     const current = pages[pageIndex];
 
@@ -96,7 +97,7 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
             const blob = await handle.toBlob();
             if (!blob) throw new Error("Could not capture drawing");
             setOverlays((prev) => ({ ...prev, [index]: URL.createObjectURL(blob) }));
-            await onSaveAnnotation(index, blob);
+            await onSaveAnnotation(pages[index]?.sourceIndex ?? index, blob);
             setSaveState("idle");
         } catch (e) {
             console.error(e);
@@ -104,7 +105,7 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
             setDirty(true);
             setSaveState("error");
         }
-    }, [onSaveAnnotation, pageIndex]);
+    }, [onSaveAnnotation, pageIndex, pages]);
 
     const setPageIndex = useCallback((next: number | ((p: number) => number)) => {
         void saveCurrent();

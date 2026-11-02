@@ -10,6 +10,7 @@ import KanjiDrop from './KanjiDrop';
 import RainbowBubble from './RainbowBubble';
 import BuriedTreasure from './BuriedTreasure';
 import HebrewDrop from './HebrewDrop';
+import GemFinder from './GemFinder';
 import {
     CellState,
     NonogramPuzzle,
@@ -91,6 +92,7 @@ export const PuzzleMode: React.FC<PuzzleModeProps> = ({
     const [showRainbowBubble, setShowRainbowBubble] = useState(false);
     const [showBuriedTreasure, setShowBuriedTreasure] = useState(false);
     const [showHebrewDrop, setShowHebrewDrop] = useState(false);
+    const [showGemFinder, setShowGemFinder] = useState(false);
 
     const elapsedRef = useRef(0);
     const goalSecondsRef = useRef<number | null>(null);
@@ -369,6 +371,16 @@ export const PuzzleMode: React.FC<PuzzleModeProps> = ({
                         <div className="text-sm text-gray-500 mt-1">3×3 · 4×4 · 6×6 · 9×9</div>
                     </button>
                     <button
+                        onClick={() => setShowGemFinder(true)}
+                        className="py-6 rounded-2xl border-2 border-emerald-700 bg-gray-900 hover:bg-emerald-900/30 hover:border-emerald-400 transition-all text-left px-6 group"
+                    >
+                        <div className="text-2xl mb-2">💎</div>
+                        <div className="text-lg font-bold text-white group-hover:text-emerald-300">
+                            GemFinder
+                        </div>
+                        <div className="text-sm text-gray-500 mt-1">Find gems · Avoid mines</div>
+                    </button>
+                    <button
                         onClick={() => setShowKanjiDrop(true)}
                         className="py-6 rounded-2xl border-2 border-yellow-700 bg-gray-900 hover:bg-yellow-900/30 hover:border-yellow-400 transition-all text-left px-6 group"
                     >
@@ -425,6 +437,14 @@ export const PuzzleMode: React.FC<PuzzleModeProps> = ({
                         onAwardXP={onAwardXP}
                         onClose={() => {
                             setShowSudoku(false);
+                            setPhase('gridSubtopic');
+                        }}
+                    />
+                )}
+                {showGemFinder && (
+                    <GemFinder
+                        onClose={() => {
+                            setShowGemFinder(false);
                             setPhase('gridSubtopic');
                         }}
                     />

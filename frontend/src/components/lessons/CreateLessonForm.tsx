@@ -25,6 +25,7 @@ interface PageItem {
     file?: File;
     caption: string;
     customSlide?: CustomSlideSettings;
+    hidden?: boolean;
 }
 
 let keyCounter = 0;
@@ -51,7 +52,7 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
     const [title, setTitle] = useState(lesson?.title ?? "");
     const [description, setDescription] = useState(lesson?.description ?? "");
     const [items, setItems] = useState<PageItem[]>(
-        () => (lesson?.pages ?? []).map(p => ({ key: nextKey(), storagePath: p.storagePath, annotationPath: p.annotationPath, caption: p.caption ?? "", customSlide: p.customSlide }))
+        () => (lesson?.pages ?? []).map(p => ({ key: nextKey(), storagePath: p.storagePath, annotationPath: p.annotationPath, caption: p.caption ?? "", customSlide: p.customSlide, hidden: p.hidden }))
     );
     const [uploading, setUploading] = useState(false);
     const [progress, setProgress] = useState<UploadProgress>({ uploaded: 0, total: 0 });
@@ -86,8 +87,11 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
     const setCaption = (i: number, caption: string) =>
         setItems(items.map((it, idx) => (idx === i ? { ...it, caption } : it)));
 
+    const toggleHidden = (i: number) =>
+        setItems(items.map((it, idx) => (idx === i ? { ...it, hidden: !it.hidden } : it)));
+
     const canSubmit =
-        !!user && !!topic && !!title.trim() && items.length > 0 && !uploading;
+        !!user && !!topic && !!title.trim() && items.some(it => !it.hidden) && !uploading;
 
     const submit = async () => {
         if (!user || !canSubmit) return;
@@ -108,6 +112,7 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
                             file: it.file,
                             caption: it.caption,
                             customSlide: it.customSlide,
+                            hidden: it.hidden,
                         })),
                     },
                     setProgress
@@ -232,10 +237,10 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
                             <div className="mt-3 flex flex-col gap-2">
                                 {items.map((it, i) => (
                                     <div key={it.key} className="flex items-center gap-2 bg-white/5 rounded-lg p-2">
-                                        <PageThumb item={it} />
+                                        <div className={it.hidden ? "opacity-40" : ""}><PageThumb item={it} /></div>
                                         <div className="flex-1 min-w-0 flex flex-col gap-1">
                                             <div className="text-white/60 text-xs truncate">
-                                                {i + 1}. {it.file ? it.file.name : it.customSlide ? "Custom slide" : "Existing page"}
+                                                {i + 1}. {it.hidden ? "(Hidden) " : ""}{it.file ? it.file.name : it.customSlide ? "Custom slide" : "Existing page"}
                                             </div>
                                             <input
                                                 value={it.caption}
@@ -259,6 +264,15 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
                                                     Edit
                                                 </button>
                                             )}
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleHidden(i)}
+                                                aria-label={it.hidden ? `Show slide ${i + 1}` : `Hide slide ${i + 1}`}
+                                                title={it.hidden ? "Hidden from viewers — click to show" : "Hide from viewers"}
+                                                className={`text-xs px-1 ${it.hidden ? "text-yellow-300" : "text-gray-400 hover:text-white"}`}
+                                            >
+                                                {it.hidden ? "Show" : "Hide"}
+                                            </button>
                                             <button onClick={() => moveItem(i, -1)} disabled={i === 0} className="text-gray-400 hover:text-white disabled:opacity-20 text-xs px-1">▲</button>
                                             <button onClick={() => moveItem(i, 1)} disabled={i === items.length - 1} className="text-gray-400 hover:text-white disabled:opacity-20 text-xs px-1">▼</button>
                                             <button onClick={() => removeItem(i)} className="text-red-400 hover:text-red-300 text-xs px-1">✕</button>

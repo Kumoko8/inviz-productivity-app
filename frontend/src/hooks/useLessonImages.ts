@@ -24,6 +24,9 @@ export interface ResolvedPage {
     url: string;
     caption?: string;
     annotationUrl?: string;
+    hidden?: boolean;
+    /** Index in lesson.pages (differs from the displayed index when pages are hidden) */
+    sourceIndex: number;
 }
 
 interface UseLessonImagesResult {
@@ -50,7 +53,9 @@ export function useLessonImages(lesson: Lesson): UseLessonImagesResult {
         (async () => {
             // Resolve all pages in parallel
             const resolved = await Promise.all(
-                lesson.pages.map(async (p) => ({
+                lesson.pages.map(async (p, sourceIndex) => ({
+                    hidden: p.hidden,
+                    sourceIndex,
                     url: await resolveStoragePath(p.storagePath),
                     caption: p.caption,
                     annotationUrl: p.annotationPath ? await resolveStoragePath(p.annotationPath) : undefined,

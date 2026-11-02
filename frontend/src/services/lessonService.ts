@@ -105,6 +105,7 @@ export interface EditPageInput {
     file?: File;
     caption?: string;
     customSlide?: CustomSlideSettings;
+    hidden?: boolean;
     /** Existing annotation overlay; dropped when the image is replaced */
     annotationPath?: string;
 }
@@ -153,6 +154,7 @@ export async function updateLesson(
             storagePath: path,
             ...(caption ? { caption } : {}),
             ...(p.customSlide ? { customSlide: p.customSlide } : {}),
+            ...(p.hidden ? { hidden: true } : {}),
             ...(annotationPath ? { annotationPath } : {}),
         });
     }
