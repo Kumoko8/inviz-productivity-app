@@ -356,8 +356,9 @@ export type QuestionHistory = Record<string, {
     incorrect: number;
 }>;
 
-const CORRECT_WEIGHT_PENALTY = 0.85;
-const INCORRECT_WEIGHT_BONUS = 12;
+// Each miss multiplies a question's weight up; each correct answer scales it back down
+const CORRECT_WEIGHT_FACTOR = 0.5;
+const INCORRECT_WEIGHT_FACTOR = 3;
 const MIN_WEIGHT = 0.05;
 const TEXT_BANKS: Record<string, [QBank, QBank, QBank]> = {};
 
@@ -377,7 +378,7 @@ function getWeightedBankQuestion(bank: QBank, history?: QuestionHistory): [strin
         const incorrect = stats?.incorrect ?? 0;
         const weight = Math.max(
             MIN_WEIGHT,
-            1 - (correct * CORRECT_WEIGHT_PENALTY) + (incorrect * INCORRECT_WEIGHT_BONUS)
+            (INCORRECT_WEIGHT_FACTOR ** incorrect) * (CORRECT_WEIGHT_FACTOR ** correct)
         );
         return { display, answer, weight };
     });
