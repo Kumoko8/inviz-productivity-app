@@ -1,17 +1,17 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, lazy, Suspense } from "react";
 import { isAdmin } from '../utils/adminConfig';
 import ClassModeSkills from "./ClassModeSkills";
 import LevelUpOverlay from "./LevelUpOverlay";
-import TrainingMode from "./training/TrainingMode";
-import { PuzzleMode } from "./puzzle/PuzzleMode";
-import { ColoringMode } from "./coloring/ColoringMode";
-import LessonsMode from "./lessons/LessonsMode";
-import ClassModeStatsGraph from "./ClassModeStatsGraph";
-import GoalMode from "./GoalMode";
-import GroupSkillImportDialog from "./GroupSkillImportDialog";
+const TrainingMode = lazy(() => import("./training/TrainingMode"));
+const PuzzleMode = lazy(() => import("./puzzle/PuzzleMode").then(m => ({ default: m.PuzzleMode })));
+const ColoringMode = lazy(() => import("./coloring/ColoringMode").then(m => ({ default: m.ColoringMode })));
+const LessonsMode = lazy(() => import("./lessons/LessonsMode"));
+const ClassModeStatsGraph = lazy(() => import("./ClassModeStatsGraph"));
+const GoalMode = lazy(() => import("./GoalMode"));
+const GroupSkillImportDialog = lazy(() => import("./GroupSkillImportDialog"));
 import type { GroupSkillImportCandidate } from "./GroupSkillImportDialog";
 import { fetchAnimUrl } from "../utils/storageUtils";
-import PixelCanvasEditor from "./PixelCanvasEditor";
+const PixelCanvasEditor = lazy(() => import("./PixelCanvasEditor"));
 import { getDownloadURL, ref as storageRef } from "firebase/storage";
 import { storage } from "../firebase";
 import { Character } from "../types/character";
@@ -50,17 +50,20 @@ const WOUNDED_HP = 50;
 // Responsive still frame: shows the Storage image (path stored in the character's Firestore
 // `stillFrames` map) for the current state, falling back to the default image, then the paused video.
 const ResponsiveStill: React.FC<{ frames?: StillFrames; state: StillState; videoUrl?: string; className?: string; version?: number }> = ({ frames, state, videoUrl, className, version }) => {
-    const [urls, setUrls] = useState<StillFrames>({});
-    React.useEffect(() => { if (version) setUrls({}); }, [version]);
-    const path = frames?.[state] || frames?.default;
-    const key = frames?.[state] ? state : 'default';
+    // URLs are keyed by Storage path and every state's image is resolved up front in parallel,
+    // so switching states (e.g. losing HP) swaps instantly instead of waiting on a fetch.
+    const [urls, setUrls] = useState<Record<string, string>>({});
+    const pathsKey = Array.from(new Set(Object.values(frames ?? {}).filter(Boolean))).sort().join('|');
     React.useEffect(() => {
-        if (!path || urls[key]) return;
         let cancelled = false;
-        fetchAnimUrl(path).then(url => { if (!cancelled && url) setUrls(prev => ({ ...prev, [key]: url })); });
+        if (version) setUrls({});
+        pathsKey.split('|').filter(Boolean).forEach(path => {
+            fetchAnimUrl(path).then(url => { if (!cancelled && url) setUrls(prev => (prev[path] === url ? prev : { ...prev, [path]: url })); });
+        });
         return () => { cancelled = true; };
-    }, [path, key, urls]);
-    const url = path ? urls[key] : undefined;
+    }, [pathsKey, version]);
+    const path = frames?.[state] || frames?.default;
+    const url = (path && urls[path]) || (frames?.default ? urls[frames.default] : undefined);
     if (!url) return <StillFrame url={videoUrl} className={className} />;
     return <img src={url} alt="" style={{ imageRendering: 'pixelated' }} className={`${className ?? 'w-full h-full'} object-contain pointer-events-none`} />;
 };
@@ -309,8 +312,10 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
                 const ch = allChars.find((a: any) => a.id === id);
                 const uc = userCharacters[id] ?? ch ?? {};
                 const animPath = (uc && (uc.animation || uc.defaultAnimation)) || ch?.defaultAnimation || ch?.animation;
-                if (!animPath) {
-                    setAnimUrls(prev => ({ ...prev, [id]: '' }));
+                // The card shows a still image when one exists; the video is only a fallback.
+                const hasStill = !!((uc as any).stillFrames?.default ?? (ch as any)?.stillFrames?.default);
+                if (!animPath || hasStill) {
+                    setAnimUrls(prev => (prev[id] === '' ? prev : { ...prev, [id]: '' }));
                     continue;
                 }
                 try {
@@ -692,12 +697,14 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
                 </div>
             )}
             {pendingGroupSkillImport && (
+                <Suspense fallback={null}>
                 <GroupSkillImportDialog
                     group={pendingGroupSkillImport.group}
                     candidates={pendingGroupSkillImport.candidates}
                     onImport={() => { void importSkillsForGroupCandidates(); }}
                     onSkip={() => setPendingGroupSkillImport(null)}
                 />
+                </Suspense>
             )}
             {showAddCharacter && (
                 <div className="fixed inset-0 z-[70] bg-black bg-opacity-40 flex items-center justify-center p-4">
@@ -981,6 +988,7 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
                 const folder = editingStill.name.toLowerCase().trim();
                 const fileFor = (state: string) => (frames[state] || '').split('/').pop()?.replace(/\.[^.]+$/, '') || `${folder}_${state.toLowerCase()}`;
                 return (
+                    <Suspense fallback={null}>
                     <PixelCanvasEditor
                         defaultName={folder}
                         onClose={() => setEditingStill(null)}
@@ -1012,10 +1020,12 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
                             },
                         }}
                     />
+                    </Suspense>
                 );
             })()}
 
             {showTraining && (
+                <Suspense fallback={null}>
                 <TrainingMode
                     uid={uid}
                     allCharacters={allChars.map((ch: any) => {
@@ -1055,17 +1065,23 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
                     onNavigateToCharacter={navigateToCharacter}
                     onClose={() => setShowTraining(false)}
                 />
+                </Suspense>
             )}
             {showColoring && (
+                <Suspense fallback={null}>
                 <ColoringMode
                     uid={uid}
                     onClose={() => setShowColoring(false)}
                 />
+                </Suspense>
             )}
             {showLessons && (
+                <Suspense fallback={null}>
                 <LessonsMode onClose={() => setShowLessons(false)} />
+                </Suspense>
             )}
             {showGoal && (
+                <Suspense fallback={null}>
                 <GoalMode
                     uid={uid}
                     onClose={() => setShowGoal(false)}
@@ -1074,11 +1090,15 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
                     onAwardGroupXp={awardXpToGroup}
                     onAwardCharacterXp={changeXp}
                 />
+                </Suspense>
             )}
             {showStatsGraph && (
+                <Suspense fallback={null}>
                 <ClassModeStatsGraph characters={groupChars} userCharacters={userCharacters} setUserCharacters={setUserCharacters} saveCharacter={saveCharacter} onClose={() => setShowStatsGraph(false)} />
+                </Suspense>
             )}
             {showPuzzle && (
+                <Suspense fallback={null}>
                 <PuzzleMode
                     uid={uid}
                     allCharacters={allChars.map((ch: any) => {
@@ -1099,6 +1119,7 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
                     onAwardXP={changeXp}
                     onClose={() => setShowPuzzle(false)}
                 />
+                </Suspense>
             )}
         </div>
     );
