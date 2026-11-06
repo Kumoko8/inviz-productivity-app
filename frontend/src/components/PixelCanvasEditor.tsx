@@ -9,18 +9,28 @@ const MAX_UNDO = 50;
 
 interface Props {
     defaultName: string;
-    frames: File[];
-    onAddFrame: (file: File) => void;
-    onRemoveFrame: (index: number) => void;
+    frames?: File[];
+    onAddFrame?: (file: File) => void;
+    onRemoveFrame?: (index: number) => void;
+    // When set, the editor uploads one named image straight to Storage instead of queueing frames.
+    stillTarget?: {
+        states: { value: string; label: string }[];
+        defaultState?: string;
+        defaultFileName: string;
+        loadUrl?: (state: string) => Promise<string>;
+        onUpload: (blob: Blob, fileName: string, state: string) => Promise<void>;
+    };
     onClose: () => void;
 }
+
+const NO_FRAMES: File[] = [];
 
 const hexToRgba = (hex: string): [number, number, number, number] => {
     const n = parseInt(hex.slice(1), 16);
     return [(n >> 16) & 255, (n >> 8) & 255, n & 255, 255];
 };
 
-const PixelCanvasEditor: React.FC<Props> = ({ defaultName, frames, onAddFrame, onRemoveFrame, onClose }) => {
+const PixelCanvasEditor: React.FC<Props> = ({ defaultName, frames = NO_FRAMES, onAddFrame, onRemoveFrame, stillTarget, onClose }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [tool, setTool] = useState<Tool>('pen');
     const [color, setColor] = useState('#000000');
@@ -173,12 +183,13 @@ const PixelCanvasEditor: React.FC<Props> = ({ defaultName, frames, onAddFrame, o
     const addFrame = async () => {
         const blob = await toPngBlob();
         if (!blob) return;
-        onAddFrame(new File([blob], `drawn_${Date.now()}.png`, { type: 'image/png' }));
+        onAddFrame?.(new File([blob], `drawn_${Date.now()}.png`, { type: 'image/png' }));
     };
 
     // Loads a queued frame back onto the canvas so it can be tweaked into the next frame.
-    const loadFrame = (src: string) => {
+    const loadFrame = (src: string, crossOrigin = false) => {
         const img = new Image();
+        if (crossOrigin) img.crossOrigin = 'anonymous';
         img.onload = () => {
             snapshot();
             const ctx = getCtx();
@@ -186,6 +197,37 @@ const PixelCanvasEditor: React.FC<Props> = ({ defaultName, frames, onAddFrame, o
             ctx.drawImage(img, 0, 0, SIZE, SIZE);
         };
         img.src = src;
+    };
+
+    const [stillState, setStillState] = useState(stillTarget?.defaultState ?? stillTarget?.states[0]?.value ?? '');
+    const [fileName, setFileName] = useState(stillTarget?.defaultFileName ?? '');
+    const [uploadStatus, setUploadStatus] = useState<{ ok: boolean; msg: string } | null>(null);
+    const [uploading, setUploading] = useState(false);
+
+    const loadStillForState = async (state: string) => {
+        if (!stillTarget?.loadUrl) return;
+        const url = await stillTarget.loadUrl(state).catch(() => '');
+        if (url) loadFrame(url, true);
+    };
+
+    useEffect(() => { loadStillForState(stillState); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const uploadStill = async () => {
+        if (!stillTarget) return;
+        const name = fileName.trim().replace(/\.png$/i, '');
+        if (!name || /[\\/]/.test(name)) return setUploadStatus({ ok: false, msg: 'Enter a file name (no slashes).' });
+        const blob = await toPngBlob();
+        if (!blob) return;
+        setUploading(true);
+        setUploadStatus(null);
+        try {
+            await stillTarget.onUpload(blob, `${name}.png`, stillState);
+            setUploadStatus({ ok: true, msg: `Uploaded ${name}.png` });
+        } catch (e: any) {
+            setUploadStatus({ ok: false, msg: e?.message || 'Upload failed.' });
+        } finally {
+            setUploading(false);
+        }
     };
 
     // Saving under an existing name overwrites it, which is how a template gets edited.
@@ -231,13 +273,36 @@ const PixelCanvasEditor: React.FC<Props> = ({ defaultName, frames, onAddFrame, o
                     <button onClick={redo} className={`${btn} ${idle}`} title="Redo (Ctrl+Y)">↪</button>
                     <button onClick={clear} className={`${btn} bg-gray-800 text-gray-400 hover:bg-red-900/40 hover:text-red-400`}>🗑 Clear</button>
                     <button onClick={savePng} className={`${btn} bg-cyan-600 hover:bg-cyan-500 text-white`}>Save PNG</button>
-                    <button onClick={addFrame} className={`${btn} bg-green-600 hover:bg-green-500 text-white`} title="Add this drawing as the next frame to upload">
+                    {!stillTarget && <button onClick={addFrame} className={`${btn} bg-green-600 hover:bg-green-500 text-white`} title="Add this drawing as the next frame to upload">
                         Add as frame ({frames.length})
-                    </button>
+                    </button>}
                     <button onClick={onClose} className={`${btn} bg-gray-700 text-white hover:bg-gray-600`}>Done</button>
                 </div>
             </div>
 
+            {stillTarget ? (
+                <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-gray-900/70 border-b border-gray-800">
+                    <select
+                        value={stillState}
+                        onChange={e => { setStillState(e.target.value); loadStillForState(e.target.value); }}
+                        className="px-2 py-1 rounded bg-gray-800 text-gray-200 text-sm border border-gray-700"
+                        aria-label="Image state"
+                    >
+                        {stillTarget.states.map(st => <option key={st.value} value={st.value}>{st.label}</option>)}
+                    </select>
+                    <input
+                        value={fileName}
+                        onChange={e => setFileName(e.target.value)}
+                        placeholder="File name"
+                        className="w-48 px-2 py-1 rounded bg-gray-800 text-gray-200 text-sm border border-gray-700"
+                    />
+                    <span className="text-xs text-gray-500">.png</span>
+                    <button onClick={uploadStill} disabled={uploading} className={`${btn} bg-green-600 hover:bg-green-500 text-white disabled:opacity-50`}>
+                        {uploading ? 'Uploading…' : 'Upload to Firebase'}
+                    </button>
+                    {uploadStatus && <span className={`text-xs ${uploadStatus.ok ? 'text-green-400' : 'text-red-400'}`}>{uploadStatus.msg}</span>}
+                </div>
+            ) : (
             <div className="flex items-center gap-2 px-3 py-2 bg-gray-900/70 border-b border-gray-800 overflow-x-auto">
                 <span className="text-xs text-gray-400 shrink-0">
                     Frames to upload ({frames.length}): <b>Add as frame</b> queues the canvas; <b>Save PNG</b> only downloads the current canvas.
@@ -254,13 +319,14 @@ const PixelCanvasEditor: React.FC<Props> = ({ defaultName, frames, onAddFrame, o
                         />
                         <span className="absolute bottom-0 left-0 text-[9px] bg-black/70 text-white px-0.5">{i + 1}</span>
                         <button
-                            onClick={() => onRemoveFrame(i)}
+                            onClick={() => onRemoveFrame?.(i)}
                             className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[10px] leading-none hidden group-hover:block"
                             aria-label={`Remove frame ${i + 1}`}
                         >×</button>
                     </div>
                 ))}
             </div>
+            )}
 
             <div className="flex items-center gap-2 px-3 py-2 bg-gray-900/70 border-b border-gray-800 overflow-x-auto">
                 <input

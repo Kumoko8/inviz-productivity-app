@@ -1,6 +1,6 @@
 import { db, storage } from "../firebase";
 import { collection, doc, addDoc, getDocs, setDoc, updateDoc, getDoc, deleteDoc, arrayUnion, query, where, limit } from "firebase/firestore";
-import { ref as storageRef, uploadString, getDownloadURL, listAll, deleteObject } from 'firebase/storage';
+import { ref as storageRef, uploadBytes, uploadString, getDownloadURL, listAll, deleteObject } from 'firebase/storage';
 import { sanitizeForFirestore } from "../utils/characterUtils";
 import { BaseCharacterFirestore, UserCharacterDataFirestore } from "../types/character";
 
@@ -19,6 +19,24 @@ export const addCharacter = async (characterData: BaseCharacterFirestore) => {
     console.error("❌ Error adding character:", error);
     throw error;
   }
+};
+
+// Uploads a ClassMode still image to characters/<name>/stills/<fileName> and points the
+// character's stillFrames[state] at it (base doc, plus the user's copy when it has its own map).
+export const uploadCharacterStill = async (
+  opts: { characterId: string; characterName: string; uid?: string | null; state: string; fileName: string; blob: Blob; userStillFrames?: Record<string, string> }
+): Promise<string> => {
+  const folder = opts.characterName.toLowerCase().trim();
+  const path = `characters/${folder}/stills/${opts.fileName}`;
+  await uploadBytes(storageRef(storage, path), opts.blob, { contentType: 'image/png' });
+  const baseRef = doc(db, "characters", opts.characterId);
+  const baseSnap = await getDoc(baseRef);
+  const baseFrames = (baseSnap.exists() ? baseSnap.data().stillFrames : undefined) || {};
+  await updateDoc(baseRef, { stillFrames: { ...baseFrames, [opts.state]: path } });
+  if (opts.uid && opts.userStillFrames) {
+    await updateUserCharacter(opts.uid, opts.characterId, { stillFrames: { ...opts.userStillFrames, [opts.state]: path } } as any);
+  }
+  return path;
 };
 
 // Fetch all base characters

@@ -11,9 +11,12 @@ import GoalMode from "./GoalMode";
 import GroupSkillImportDialog from "./GroupSkillImportDialog";
 import type { GroupSkillImportCandidate } from "./GroupSkillImportDialog";
 import { fetchAnimUrl } from "../utils/storageUtils";
+import PixelCanvasEditor from "./PixelCanvasEditor";
+import { getDownloadURL, ref as storageRef } from "firebase/storage";
+import { storage } from "../firebase";
 import { Character } from "../types/character";
 import { totalXpForLevel, xpThreshold } from "../utils/xpUtils";
-import { addUserCharacter, getUserCharacter } from "../services/characterService";
+import { addUserCharacter, getUserCharacter, uploadCharacterStill } from "../services/characterService";
 import { getCommonGroupSkills, getMissingGroupSkills, importMissingGroupSkills } from "../utils/groupSkillImport";
 import RecalculateTotalXpButton from "./RecalculateTotalXpButton";
 
@@ -46,8 +49,9 @@ const WOUNDED_HP = 50;
 
 // Responsive still frame: shows the Storage image (path stored in the character's Firestore
 // `stillFrames` map) for the current state, falling back to the default image, then the paused video.
-const ResponsiveStill: React.FC<{ frames?: StillFrames; state: StillState; videoUrl?: string; className?: string }> = ({ frames, state, videoUrl, className }) => {
+const ResponsiveStill: React.FC<{ frames?: StillFrames; state: StillState; videoUrl?: string; className?: string; version?: number }> = ({ frames, state, videoUrl, className, version }) => {
     const [urls, setUrls] = useState<StillFrames>({});
+    React.useEffect(() => { if (version) setUrls({}); }, [version]);
     const path = frames?.[state] || frames?.default;
     const key = frames?.[state] ? state : 'default';
     React.useEffect(() => {
@@ -58,7 +62,7 @@ const ResponsiveStill: React.FC<{ frames?: StillFrames; state: StillState; video
     }, [path, key, urls]);
     const url = path ? urls[key] : undefined;
     if (!url) return <StillFrame url={videoUrl} className={className} />;
-    return <img src={url} alt="" className={`${className ?? 'w-full h-full'} object-contain pointer-events-none`} />;
+    return <img src={url} alt="" style={{ imageRendering: 'pixelated' }} className={`${className ?? 'w-full h-full'} object-contain pointer-events-none`} />;
 };
 
 interface Props {
@@ -75,6 +79,8 @@ interface Props {
 
 const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCharacters, saveCharacter, updateSkill, onClose, controlsDisabled, navigateToCharacter }) => {
     const [selected, setSelected] = useState<string[]>([]);
+    const [editingStill, setEditingStill] = useState<{ id: string; name: string } | null>(null);
+    const [stillVersion, setStillVersion] = useState(0);
     const [skillName, setSkillName] = useState("");
     const [skillType] = useState<'list' | 'completion' | 'data' | 'level'>('data');
     const [subskillsDraft, setSubskillsDraft] = useState<SubskillDraft[]>([]);
@@ -99,6 +105,12 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
         stillTimers.current[charId] = window.setTimeout(() => {
             setStillEvents(prev => { const next = { ...prev }; delete next[charId]; return next; });
         }, STILL_EVENT_MS);
+    };
+    // Healing ends a lingering lose-HP image so the card goes back to default.
+    const clearLoseHpStill = (charId: string) => {
+        if (stillEvents[charId] !== 'loseHp') return;
+        if (stillTimers.current[charId]) window.clearTimeout(stillTimers.current[charId]);
+        setStillEvents(prev => { const next = { ...prev }; delete next[charId]; return next; });
     };
     React.useEffect(() => () => { Object.values(stillTimers.current).forEach(t => window.clearTimeout(t)); }, []);
     const [xpLevelToast, setXpLevelToast] = useState<Record<string, boolean>>({});
@@ -464,6 +476,7 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
         const maxHp = typeof uc.maxHp === 'number' ? uc.maxHp : (ch.maxHp ?? 100);
         const newHp = Math.max(0, Math.min(maxHp, curHp + delta));
         if (newHp < curHp) triggerStill(charId, 'loseHp');
+        else if (newHp > curHp) clearLoseHpStill(charId);
         const updated = { ...uc, hp: newHp };
         setUserCharacters((prev: Record<string, any>) => ({ ...prev, [charId]: updated }));
         try { await saveCharacter(updated); } catch (e) { console.error(e); }
@@ -475,6 +488,7 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
         const uc = userCharacters[charId] ?? ch ?? {};
         const prevHp = typeof uc.hp === 'number' ? uc.hp : (ch.hp ?? 100);
         if (hp < prevHp) triggerStill(charId, 'loseHp');
+        else if (hp > prevHp) clearLoseHpStill(charId);
         const updated = { ...uc, hp };
         setUserCharacters((prev: Record<string, any>) => ({ ...prev, [charId]: updated }));
         try { await saveCharacter(updated); } catch (e) { console.error(e); }
@@ -880,11 +894,20 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
                                                     {animLoading[c.id] ? (
                                                         <div className="w-6 h-6 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
                                                     ) : ((animUrl || stillFrames) && selected.includes(c.id)) ? (
-                                                        <ResponsiveStill frames={stillFrames} state={stillState} videoUrl={animUrl} className="w-full h-40 " />
+                                                        <ResponsiveStill frames={stillFrames} state={stillState} videoUrl={animUrl} className="w-full h-40 " version={stillVersion} />
                                                     ) : (
                                                         <div className="text-xs text-gray-400 py-6">{selected.includes(c.id) ? 'No preview' : 'Click name to select'}</div>
                                                     )}
                                                 </div>
+
+                                                {isAdmin(uid) && selected.includes(c.id) && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setEditingStill({ id: c.id, name: String(uc.name ?? c.name ?? '') }); }}
+                                                        className="mt-1 px-2 py-0.5 text-xs bg-cyan-600 hover:bg-cyan-700 text-white rounded"
+                                                    >
+                                                        🎨 Edit image
+                                                    </button>
+                                                )}
 
                                                 <div className="mt-2">
                                                     <div className="flex items-center justify-between">
@@ -950,6 +973,47 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
                     )}
                 </div>
             </div>
+
+            {editingStill && (() => {
+                const base: any = (characters || []).find((b: any) => b.id === editingStill.id);
+                const uc: any = userCharacters[editingStill.id];
+                const frames: Record<string, string> = uc?.stillFrames ?? base?.stillFrames ?? {};
+                const folder = editingStill.name.toLowerCase().trim();
+                const fileFor = (state: string) => (frames[state] || '').split('/').pop()?.replace(/\.[^.]+$/, '') || `${folder}_${state.toLowerCase()}`;
+                return (
+                    <PixelCanvasEditor
+                        defaultName={folder}
+                        onClose={() => setEditingStill(null)}
+                        stillTarget={{
+                            states: [
+                                { value: 'default', label: 'Default' },
+                                { value: 'earnXp', label: 'Earn XP' },
+                                { value: 'loseHp', label: 'Lose HP' },
+                                { value: 'wounded', label: 'Wounded' },
+                            ],
+                            defaultFileName: fileFor('default'),
+                            loadUrl: async (state) => frames[state] ? fetchAnimUrl(frames[state]) : '',
+                            onUpload: async (blob, fileName, state) => {
+                                const path = await uploadCharacterStill({
+                                    characterId: editingStill.id,
+                                    characterName: editingStill.name,
+                                    uid,
+                                    state,
+                                    fileName,
+                                    blob,
+                                    userStillFrames: uc?.stillFrames,
+                                });
+                                const url = await getDownloadURL(storageRef(storage, path));
+                                try { window.localStorage.setItem('animUrl:' + path, url + (url.includes('?') ? '&' : '?') + 'v=' + Date.now()); } catch { /* ignore */ }
+                                setUserCharacters(prev => prev[editingStill.id] && prev[editingStill.id].stillFrames
+                                    ? { ...prev, [editingStill.id]: { ...prev[editingStill.id], stillFrames: { ...prev[editingStill.id].stillFrames, [state]: path } } }
+                                    : prev);
+                                setStillVersion(v => v + 1);
+                            },
+                        }}
+                    />
+                );
+            })()}
 
             {showTraining && (
                 <TrainingMode
