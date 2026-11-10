@@ -22,6 +22,7 @@ async function resolveStoragePath(path: string): Promise<string> {
 
 export interface ResolvedPage {
     url: string;
+    mediaType?: "video";
     caption?: string;
     annotationUrl?: string;
     hidden?: boolean;
@@ -57,6 +58,7 @@ export function useLessonImages(lesson: Lesson): UseLessonImagesResult {
                     hidden: p.hidden,
                     sourceIndex,
                     url: await resolveStoragePath(p.storagePath),
+                    mediaType: p.mediaType,
                     caption: p.caption,
                     annotationUrl: p.annotationPath ? await resolveStoragePath(p.annotationPath) : undefined,
                 }))

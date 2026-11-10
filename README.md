@@ -75,6 +75,14 @@ npm run dev:fe
 
 - Remove the .git and .github folder and initialize your own git repository.
 
+## Lessons
+
+Lessons can contain uploaded images, videos, and custom text slides. Page files
+are stored in Firebase Storage and lesson metadata is stored in Firestore.
+Videos use the browser's playback controls and do not play or loop automatically;
+drawing annotations are available on image and custom text slides only. Video
+format support depends on the viewer's browser.
+
 ## TODO
 
 - [x] Include eslint and prettier.

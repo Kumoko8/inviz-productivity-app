@@ -3,9 +3,11 @@
 // This file holds the shared types and the built-in topic list used as defaults.
 
 export interface LessonPage {
-    /** Firebase Storage path — e.g. "lessons/english/similes/01_x.jpeg" */
+    /** Firebase Storage path for an image or video page. */
     storagePath: string;
-    /** Optional caption shown below the image */
+    /** Missing on existing image pages. */
+    mediaType?: "video";
+    /** Optional caption shown below the page */
     caption?: string;
     /** Source content for custom slides, allowing them to be edited after saving. */
     customSlide?: CustomSlideSettings;

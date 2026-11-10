@@ -21,8 +21,9 @@ interface PageItem {
     /** Existing page already in Storage */
     storagePath?: string;
     annotationPath?: string;
-    /** Newly added image, uploaded on submit */
+    /** Newly added media, uploaded on submit */
     file?: File;
+    mediaType?: Lesson["pages"][number]["mediaType"];
     caption: string;
     customSlide?: CustomSlideSettings;
     hidden?: boolean;
@@ -34,12 +35,16 @@ const nextKey = () => ++keyCounter;
 const PageThumb: React.FC<{ item: PageItem }> = ({ item }) => {
     const [objUrl, setObjUrl] = useState("");
     useEffect(() => {
-        if (!item.file) return;
+        if (!item.file || item.file.type.startsWith("video/")) return;
         const u = URL.createObjectURL(item.file);
         setObjUrl(u);
         return () => URL.revokeObjectURL(u);
     }, [item.file]);
-    const { url } = useStorageUrl(item.file ? "" : item.storagePath ?? "");
+    const isVideo = item.file ? item.file.type.startsWith("video/") : item.mediaType === "video";
+    const { url } = useStorageUrl(item.file || isVideo ? "" : item.storagePath ?? "");
+    if (isVideo) {
+        return <span aria-label="Video page" className="w-12 h-12 flex items-center justify-center rounded-md bg-gray-700 text-white">▶</span>;
+    }
     return <img src={item.file ? objUrl : url} alt="" className="w-12 h-12 object-cover rounded-md flex-shrink-0 bg-gray-700" />;
 };
 
@@ -52,7 +57,7 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
     const [title, setTitle] = useState(lesson?.title ?? "");
     const [description, setDescription] = useState(lesson?.description ?? "");
     const [items, setItems] = useState<PageItem[]>(
-        () => (lesson?.pages ?? []).map(p => ({ key: nextKey(), storagePath: p.storagePath, annotationPath: p.annotationPath, caption: p.caption ?? "", customSlide: p.customSlide, hidden: p.hidden }))
+        () => (lesson?.pages ?? []).map(p => ({ key: nextKey(), storagePath: p.storagePath, annotationPath: p.annotationPath, mediaType: p.mediaType, caption: p.caption ?? "", customSlide: p.customSlide, hidden: p.hidden }))
     );
     const [uploading, setUploading] = useState(false);
     const [progress, setProgress] = useState<UploadProgress>({ uploaded: 0, total: 0 });
@@ -69,8 +74,9 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
 
     const addFiles = (list: File[]) => {
         const added = list
-            .filter(f => f.type.startsWith("image/"))
+            .filter(f => f.type.startsWith("image/") || f.type.startsWith("video/"))
             .map(file => ({ key: nextKey(), file, caption: "" }));
+        setError(added.length < list.length ? "Only image and video files can be added." : null);
         setItems(prev => [...prev, ...added]);
     };
 
@@ -110,6 +116,7 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
                             storagePath: it.storagePath,
                             annotationPath: it.annotationPath,
                             file: it.file,
+                            mediaType: it.mediaType,
                             caption: it.caption,
                             customSlide: it.customSlide,
                             hidden: it.hidden,
@@ -126,6 +133,7 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
                         topic,
                         captions: items.map(it => it.caption),
                         customSlides: items.map(it => it.customSlide),
+                        hidden: items.map(it => !!it.hidden),
                         files: items.map(it => it.file!),
                     },
                     setProgress
@@ -207,7 +215,7 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
                         />
                     </div>
 
-                    {/* Images */}
+                    {/* Pages */}
                     <div>
                         <label className="block text-gray-300 text-xs font-semibold uppercase tracking-wider mb-2">
                             Pages ({items.length})
@@ -215,12 +223,12 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
                         <label className="flex items-center justify-center gap-2 border border-dashed border-gray-600 rounded-xl py-4 text-gray-400 hover:text-white hover:border-gray-400 cursor-pointer transition text-sm">
                             <input
                                 type="file"
-                                accept="image/*"
+                                accept="image/*,video/*"
                                 multiple
                                 className="hidden"
                                 onChange={e => { onPickFiles(e.target.files); e.target.value = ""; }}
                             />
-                            ＋ Add images
+                            ＋ Add images or videos
                         </label>
                         <button
                             type="button"
@@ -296,7 +304,7 @@ const CreateLessonForm: React.FC<Props> = ({ existingTopics, lesson, onCreated, 
                                 />
                             </div>
                             <p className="text-gray-400 text-xs mt-1 text-center">
-                                {editing ? "Uploading new images" : "Uploading"} {progress.uploaded}/{progress.total}…
+                                {editing ? "Uploading new pages" : "Uploading"} {progress.uploaded}/{progress.total}…
                             </p>
                         </div>
                     )}

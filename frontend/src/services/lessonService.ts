@@ -46,6 +46,7 @@ export interface NewLessonInput {
     topic: string;
     captions: string[];
     customSlides?: (CustomSlideSettings | undefined)[];
+    hidden?: boolean[];
     files: File[];
 }
 
@@ -58,7 +59,7 @@ const sanitizeSegment = (s: string) =>
     s.trim().toLowerCase().replace(/[^a-z0-9-_]+/g, "-").replace(/^-+|-+$/g, "") || "untitled";
 
 /**
- * Uploads images to Storage under lessons/<topic-slug>/<title-slug>/ and saves
+ * Uploads page media to user-owned Storage and saves
  * the lesson metadata (topic, title, captions, storage paths) to Firestore.
  */
 export async function createLesson(
@@ -80,8 +81,10 @@ export async function createLesson(
         const customSlide = input.customSlides?.[i];
         pages.push({
             storagePath: path,
+            ...(file.type.startsWith("video/") ? { mediaType: "video" as const } : {}),
             ...(caption ? { caption } : {}),
             ...(customSlide ? { customSlide } : {}),
+            ...(input.hidden?.[i] ? { hidden: true } : {}),
         });
         onProgress?.({ uploaded: i + 1, total: files.length });
     }
@@ -101,12 +104,13 @@ export async function createLesson(
 export interface EditPageInput {
     /** Existing Storage path (kept as-is) */
     storagePath?: string;
-    /** New image to upload */
+    /** New image or video to upload */
     file?: File;
+    mediaType?: LessonPage["mediaType"];
     caption?: string;
     customSlide?: CustomSlideSettings;
     hidden?: boolean;
-    /** Existing annotation overlay; dropped when the image is replaced */
+    /** Existing annotation overlay; dropped when the page media is replaced */
     annotationPath?: string;
 }
 
@@ -125,7 +129,7 @@ async function removeObject(path: string) {
     }
 }
 
-/** Updates lesson metadata/pages, uploading new images and removing dropped ones from Storage. */
+/** Updates lesson metadata/pages, uploading new media and removing dropped files from Storage. */
 export async function updateLesson(
     uid: string,
     lesson: Lesson,
@@ -152,6 +156,7 @@ export async function updateLesson(
         const annotationPath = p.file ? undefined : p.annotationPath;
         pages.push({
             storagePath: path,
+            ...((p.file ? p.file.type.startsWith("video/") : p.mediaType === "video") ? { mediaType: "video" as const } : {}),
             ...(caption ? { caption } : {}),
             ...(p.customSlide ? { customSlide: p.customSlide } : {}),
             ...(p.hidden ? { hidden: true } : {}),
@@ -175,7 +180,7 @@ export async function updateLesson(
     await Promise.all(dropped.map(removeObject));
 }
 
-/** Deletes the lesson document and all of its images. */
+/** Deletes the lesson document and all of its page files. */
 export async function deleteLesson(uid: string, lesson: Lesson): Promise<void> {
     await deleteDoc(doc(db, "users", uid, "lessons", lesson.id));
     await Promise.all(

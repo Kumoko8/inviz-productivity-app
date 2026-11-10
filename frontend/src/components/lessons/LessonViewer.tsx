@@ -82,6 +82,8 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
     const pages = useMemo(() => allPages.filter((p) => !p.hidden), [allPages]);
     const totalPages = pages.length;
     const current = pages[pageIndex];
+    const isVideo = current?.mediaType === "video";
+    const canDraw = drawingEnabled && !isVideo;
 
     const markDirty = useCallback(() => { dirtyRef.current = true; setDirty(true); }, []);
 
@@ -170,7 +172,7 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
     // Pan pointer handlers — active only when drawing is disabled
     const onPanDown = useCallback(
         (e: React.PointerEvent<HTMLDivElement>) => {
-            if (drawingEnabled || e.button !== 0) return;
+            if (canDraw || isVideo || e.button !== 0) return;
             e.currentTarget.setPointerCapture(e.pointerId);
             setIsPanning(true);
             panStartRef.current = {
@@ -180,7 +182,7 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
                 oy: panOffsetRef.current.y,
             };
         },
-        [drawingEnabled]
+        [canDraw, isVideo]
     );
 
     const onPanMove = useCallback(
@@ -241,7 +243,7 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
     // Keyboard navigation
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
-            if (e.target instanceof HTMLInputElement) return;
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLVideoElement) return;
             if (e.key === "ArrowRight" || e.key === " ") goNext();
             if (e.key === "ArrowLeft") goPrev();
             if (e.key === "+") setZoom((z) => Math.min(z + ZOOM_STEP, MAX_ZOOM));
@@ -380,7 +382,7 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
                 )}
 
                 {/* Right: draw tools */}
-                <div className="flex items-center gap-2">
+                {!isVideo && <div className="flex items-center gap-2">
                     {/* Pan indicator (shown when draw is off) */}
                     {!drawingEnabled && (
                         <span className="text-gray-400 text-xs select-none" title="Click-drag to pan when zoomed in">
@@ -498,13 +500,13 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
                             )}
                         </>
                     )}
-                </div>
+                </div>}
             </div>
 
             {/* ── Main image area ─────────────────────────────────────────── */}
             <div
                 className="flex-1 flex items-center justify-center overflow-hidden relative"
-                style={{ cursor: drawingEnabled ? "default" : isPanning ? "grabbing" : "grab" }}
+                style={{ cursor: canDraw || isVideo ? "default" : isPanning ? "grabbing" : "grab" }}
                 onPointerDown={onPanDown}
                 onPointerMove={onPanMove}
                 onPointerUp={onPanUp}
@@ -545,7 +547,19 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
                         lineHeight: 0,
                     }}
                 >
-                    <img
+                    {isVideo ? (
+                    <video
+                        key={`${lesson.id}-${pageIndex}`}
+                        src={current.url}
+                        aria-label={current.caption ?? `Video page ${pageIndex + 1}`}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="block max-w-full max-h-[calc(100vh-100px)] rounded shadow-2xl"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onError={() => setBaseError(true)}
+                    />
+                    ) : <img
                         ref={imgRef}
                         key={`${lesson.id}-${pageIndex}`}
                         src={current.url}
@@ -560,8 +574,8 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
                             }
                             setImageLoaded(true);
                         }}
-                    />
-                    {imageLoaded && (
+                    />}
+                    {!isVideo && imageLoaded && (
                         <DrawingCanvas
                             ref={canvasHandleRef}
                             key={`canvas-${lesson.id}-${pageIndex}`}
@@ -579,6 +593,9 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
                         />
                     )}
                 </div>
+                )}
+                {!loading && isVideo && (baseError || !current.url) && (
+                    <p role="alert" className="absolute bottom-4 text-red-300">Could not load this video.</p>
                 )}
 
                 {/* Right arrow */}

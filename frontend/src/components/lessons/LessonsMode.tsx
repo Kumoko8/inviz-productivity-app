@@ -214,7 +214,8 @@ const LessonCard: React.FC<{
     onDelete?: () => void;
 }> = ({ lesson, topic, onOpen, onEdit, onDelete }) => {
     const thumbPath = lesson.thumbnailPath ?? lesson.pages[0]?.storagePath ?? "";
-    const { url: thumbUrl, loading: thumbLoading } = useStorageUrl(thumbPath);
+    const thumbIsVideo = lesson.pages.some(p => p.storagePath === thumbPath && p.mediaType === "video");
+    const { url: thumbUrl, loading: thumbLoading } = useStorageUrl(thumbIsVideo ? "" : thumbPath);
 
     return (
         <div className="relative group">
@@ -238,7 +239,10 @@ const LessonCard: React.FC<{
                         loading="lazy"
                     />
                 )}
-                {!thumbLoading && !thumbUrl && (
+                {!thumbLoading && thumbIsVideo && (
+                    <span className="text-gray-200 text-sm">▶ Video lesson</span>
+                )}
+                {!thumbLoading && !thumbUrl && !thumbIsVideo && (
                     <span className="text-4xl">{topic?.icon ?? "📄"}</span>
                 )}
                 {/* Topic badge */}
@@ -285,7 +289,7 @@ const EmptyState: React.FC<{ topic: LessonTopic | null; canCreate: boolean; onCr
         {canCreate ? (
             <>
                 <p className="text-gray-400 text-sm max-w-xs mb-4">
-                    Create your first lesson by uploading image pages.
+                    Create your first lesson by uploading images or videos, or creating custom slides.
                 </p>
                 <button
                     onClick={onCreate}
