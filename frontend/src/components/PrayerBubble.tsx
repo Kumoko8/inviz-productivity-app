@@ -50,6 +50,7 @@ const PrayerBubble: React.FC<{
                 title="Prayers"
                 placeholder="Enter prayer..."
                 defaultColor="#bde0fe"
+                searchOnly
                 disabled={disabled}
                 onFocus={() => setShowFocus(true)}
                 refreshKey={prayerRefreshKey}
@@ -194,4 +195,3 @@ const PrayerBubble: React.FC<{
 };
 
 export default PrayerBubble;
-

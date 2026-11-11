@@ -88,6 +88,11 @@ note. The popped-out note box expands as the timer is resized. Both settings
 remain available when the timer is popped out or docked and are kept only while
 the lesson viewer is open.
 
+## Dashboard prayers
+
+Open the Prayers section and search by text or date to display matching prayers,
+with the newest first. Clearing the search hides the results.
+
 ## TODO
 
 - [x] Include eslint and prettier.

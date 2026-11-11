@@ -14,6 +14,7 @@ interface Props {
     disabled?: boolean;
     titleClassName?: string;
     showSearch?: boolean;
+    searchOnly?: boolean;
     onFocus?: () => void;
     refreshKey?: number;
 }
@@ -29,6 +30,7 @@ const MessageList: React.FC<Props> = ({
     disabled = false,
     titleClassName,
     showSearch,
+    searchOnly = false,
     onFocus,
     refreshKey,
 }) => {
@@ -102,21 +104,32 @@ const MessageList: React.FC<Props> = ({
         setEditingText('');
     };
 
-    const filtered = items.filter((p) => {
-        if (filterKeyword && filterKeyword.trim()) {
-            const kw = filterKeyword.trim().toLowerCase();
+    const keyword = filterKeyword?.trim().toLowerCase() ?? '';
+    const filtered = (searchOnly && !keyword ? [] : items.filter((p) => {
+        if (keyword) {
             const text = (p.text || '').toString().toLowerCase();
             const itemTitle = (p.title || '').toString().toLowerCase();
-            const dateStr = p.createdAt
+            const date = p.createdAt != null ? new Date(p.createdAt) : null;
+            const dateStr = date && !Number.isNaN(date.getTime())
                 ? [
-                    new Date(p.createdAt).toLocaleString(),
-                    new Date(p.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+                    date.toLocaleString(),
+                    date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+                    ...(searchOnly ? [`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`] : []),
                 ].join(' ').toLowerCase()
                 : '';
-            if (!text.includes(kw) && !itemTitle.includes(kw) && !dateStr.includes(kw)) return false;
+            if (!text.includes(keyword) && !itemTitle.includes(keyword) && !dateStr.includes(keyword)) return false;
         }
         return true;
-    });
+    }));
+    if (searchOnly) {
+        filtered.sort((a, b) => {
+            const aTime = a.createdAt != null ? new Date(a.createdAt).getTime() : NaN;
+            const bTime = b.createdAt != null ? new Date(b.createdAt).getTime() : NaN;
+            if (Number.isNaN(aTime)) return Number.isNaN(bTime) ? 0 : 1;
+            if (Number.isNaN(bTime)) return -1;
+            return bTime - aTime;
+        });
+    }
 
     return (
         <div className="w-full max-w-md bg-white rounded-lg shadow-md p-6 border border-cyan-200 mb-8 mx-auto min-w-0">
@@ -170,10 +183,15 @@ const MessageList: React.FC<Props> = ({
 
                     {(showSearch ?? true) && (
                         <div className="my-3">
-                            <SearchBar initialKeyword={filterKeyword ?? ''} initiallyCollapsed={true} placeholder={`Search ${title.toLowerCase()}...`} onChange={({ keyword }) => setFilterKeyword(keyword)} />
+                            <SearchBar initialKeyword={filterKeyword ?? ''} initiallyCollapsed={!searchOnly} placeholder={searchOnly ? 'Search prayers by word or date...' : `Search ${title.toLowerCase()}...`} onChange={({ keyword }) => setFilterKeyword(keyword)} />
                         </div>
                     )}
 
+                    {searchOnly && (
+                        <p className="text-sm text-gray-500 mb-3">
+                            {!keyword ? 'Search by word or date to see prayers.' : filtered.length === 0 ? 'No matching prayers.' : 'Newest prayers first.'}
+                        </p>
+                    )}
 
                     <div className="flex flex-col gap-3">
                         {filtered.map((p: any) => (
