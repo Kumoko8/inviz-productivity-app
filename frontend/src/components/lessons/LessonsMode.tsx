@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { LESSON_TOPICS, Lesson, LessonTopic } from "./lessonsData";
 import LessonViewer from "./LessonViewer";
 import CreateLessonForm from "./CreateLessonForm";
+import PixelStudio from "./PixelStudio";
 import { useStorageUrl } from "../../hooks/useLessonImages";
 import { loadLessons, deleteLesson, saveLessonAnnotation, type FirestoreLesson } from "../../services/lessonService";
 import { useUser } from "../../context/UserContext";
@@ -28,6 +29,7 @@ const LessonsMode: React.FC<Props> = ({ onClose }) => {
     const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
     const [openLesson, setOpenLesson] = useState<Lesson | null>(null);
     const [showCreate, setShowCreate] = useState(false);
+    const [showPixelStudio, setShowPixelStudio] = useState(false);
     const [editLesson, setEditLesson] = useState<Lesson | null>(null);
 
     const openLessonRef = useRef<Lesson | null>(null);
@@ -95,14 +97,14 @@ const LessonsMode: React.FC<Props> = ({ onClose }) => {
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex flex-col overflow-auto">
             <div className="w-full max-w-5xl mx-auto flex-1 flex flex-col p-4">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-wrap gap-3 items-center justify-between mb-6">
                     <div>
                         <h2 className="text-2xl font-bold text-white">Lessons Library</h2>
                         <p className="text-gray-400 text-sm mt-0.5">
                             Select a topic below then open any lesson to begin.
                         </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         {user && (
                             <button
                                 onClick={() => setShowCreate(true)}
@@ -111,6 +113,12 @@ const LessonsMode: React.FC<Props> = ({ onClose }) => {
                                 ＋ Create Lesson
                             </button>
                         )}
+                        <button
+                            onClick={() => setShowPixelStudio(true)}
+                            className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-bold transition-colors"
+                        >
+                            Pixel Studio
+                        </button>
                         <button
                             onClick={onClose}
                             className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium"
@@ -201,6 +209,7 @@ const LessonsMode: React.FC<Props> = ({ onClose }) => {
                     onCancel={() => setShowCreate(false)}
                 />
             )}
+            {showPixelStudio && <PixelStudio onClose={() => setShowPixelStudio(false)} />}
         </div>
     );
 };

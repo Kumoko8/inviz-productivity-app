@@ -88,6 +88,13 @@ note. The popped-out note box expands as the timer is resized. Both settings
 remain available when the timer is popped out or docked and are kept only while
 the lesson viewer is open.
 
+The Lessons Library also has Pixel Studio. Draw and add each animation frame to
+the queue, then choose an FPS and download a WebM video (32 × 32 pixel art
+upscaled to 512 × 512 on a white background). Export requires a browser that
+supports WebM recording and works in real time; keep the tab open. Save a
+project to download an editable JSON file, and use Open project to restore its
+queued frames and FPS. The current unqueued canvas is not included.
+
 ## Dashboard prayers
 
 Open the Prayers section and search by text or date to display matching prayers,

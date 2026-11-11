@@ -24,6 +24,7 @@ vi.mock("../../../services/lessonService", () => ({
     saveLessonAnnotation: vi.fn(),
 }));
 vi.mock("../DrawingCanvas", () => ({ default: () => <div data-testid="drawing-canvas" /> }));
+vi.mock("../PixelStudio", () => ({ default: ({ onClose }: { onClose: () => void }) => <button onClick={onClose}>Close studio</button> }));
 
 import CreateLessonForm from "../CreateLessonForm";
 import LessonViewer from "../LessonViewer";
@@ -93,6 +94,14 @@ describe("lesson media", () => {
         expect(await screen.findByText("▶ Video lesson")).toBeInTheDocument();
         expect(screen.queryByAltText("Mixed")).not.toBeInTheDocument();
         expect(mocks.getDownloadURL).not.toHaveBeenCalled();
+    });
+
+    it("opens and closes Pixel Studio from the lessons library", async () => {
+        render(<LessonsMode onClose={vi.fn()} />);
+        fireEvent.click(screen.getByText("Pixel Studio"));
+        expect(screen.getByText("Close studio")).toBeInTheDocument();
+        fireEvent.click(screen.getByText("Close studio"));
+        expect(screen.queryByText("Close studio")).not.toBeInTheDocument();
     });
 
     it("presents a video with manual controls and preserves image navigation", async () => {

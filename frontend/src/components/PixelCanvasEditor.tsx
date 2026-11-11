@@ -12,6 +12,8 @@ interface Props {
     frames?: File[];
     onAddFrame?: (file: File) => void;
     onRemoveFrame?: (index: number) => void;
+    frameControls?: React.ReactNode;
+    frameQueueLabel?: string;
     // When set, the editor uploads one named image straight to Storage instead of queueing frames.
     stillTarget?: {
         states: { value: string; label: string }[];
@@ -30,7 +32,7 @@ const hexToRgba = (hex: string): [number, number, number, number] => {
     return [(n >> 16) & 255, (n >> 8) & 255, n & 255, 255];
 };
 
-const PixelCanvasEditor: React.FC<Props> = ({ defaultName, frames = NO_FRAMES, onAddFrame, onRemoveFrame, stillTarget, onClose }) => {
+const PixelCanvasEditor: React.FC<Props> = ({ defaultName, frames = NO_FRAMES, onAddFrame, onRemoveFrame, frameControls, frameQueueLabel, stillTarget, onClose }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [tool, setTool] = useState<Tool>('pen');
     const [color, setColor] = useState('#000000');
@@ -273,7 +275,7 @@ const PixelCanvasEditor: React.FC<Props> = ({ defaultName, frames = NO_FRAMES, o
                     <button onClick={redo} className={`${btn} ${idle}`} title="Redo (Ctrl+Y)">↪</button>
                     <button onClick={clear} className={`${btn} bg-gray-800 text-gray-400 hover:bg-red-900/40 hover:text-red-400`}>🗑 Clear</button>
                     <button onClick={savePng} className={`${btn} bg-cyan-600 hover:bg-cyan-500 text-white`}>Save PNG</button>
-                    {!stillTarget && <button onClick={addFrame} className={`${btn} bg-green-600 hover:bg-green-500 text-white`} title="Add this drawing as the next frame to upload">
+                    {!stillTarget && <button onClick={addFrame} className={`${btn} bg-green-600 hover:bg-green-500 text-white`} title={frameQueueLabel ? 'Add this drawing to the frame queue' : 'Add this drawing as the next frame to upload'}>
                         Add as frame ({frames.length})
                     </button>}
                     <button onClick={onClose} className={`${btn} bg-gray-700 text-white hover:bg-gray-600`}>Done</button>
@@ -305,7 +307,7 @@ const PixelCanvasEditor: React.FC<Props> = ({ defaultName, frames = NO_FRAMES, o
             ) : (
             <div className="flex items-center gap-2 px-3 py-2 bg-gray-900/70 border-b border-gray-800 overflow-x-auto">
                 <span className="text-xs text-gray-400 shrink-0">
-                    Frames to upload ({frames.length}): <b>Add as frame</b> queues the canvas; <b>Save PNG</b> only downloads the current canvas.
+                    {frameQueueLabel ?? 'Frames to upload'} ({frames.length}): <b>Add as frame</b> queues the canvas; <b>Save PNG</b> only downloads the current canvas.
                 </span>
                 {previews.map((src, i) => (
                     <div key={src} className="relative shrink-0 group">
@@ -327,6 +329,8 @@ const PixelCanvasEditor: React.FC<Props> = ({ defaultName, frames = NO_FRAMES, o
                 ))}
             </div>
             )}
+
+            {frameControls}
 
             <div className="flex items-center gap-2 px-3 py-2 bg-gray-900/70 border-b border-gray-800 overflow-x-auto">
                 <input
