@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 import { Lesson } from "./lessonsData";
 import DrawingCanvas, { DrawTool, DrawingCanvasHandle } from "./DrawingCanvas";
 import { useLessonImages } from "../../hooks/useLessonImages";
@@ -31,6 +31,17 @@ const HIGHLIGHT_COLORS = [
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 0.25;
+const DEFAULT_TIMER_COLOR = "#1f2937";
+const EXPIRED_TIMER_COLOR = "#facc15";
+
+function timerTextColor(hex: string): string {
+    const components = [1, 3, 5].map((offset) => {
+        const value = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    const luminance = 0.2126 * components[0] + 0.7152 * components[1] + 0.0722 * components[2];
+    return luminance > 0.179 ? "#111827" : "#ffffff";
+}
 
 // Native image dimensions used as the SVG viewBox for DrawingCanvas.
 // 1600×1200 matches a typical landscape slide; portrait images still display
@@ -57,6 +68,9 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
     const [drawTool, setDrawTool] = useState<DrawTool>("highlight");
     const [canvasUndoVersion, setCanvasUndoVersion] = useState<Record<number, number>>({});
     const [timerMinutes, setTimerMinutes] = useState("5");
+    const [timerColor, setTimerColor] = useState(DEFAULT_TIMER_COLOR);
+    const [timerNote, setTimerNote] = useState("");
+    const dockedTimerNoteRef = useRef<HTMLTextAreaElement>(null);
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
     const [timerRunning, setTimerRunning] = useState(false);
     const [timerPoppedOut, setTimerPoppedOut] = useState(false);
@@ -64,7 +78,7 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
         x: typeof window !== "undefined" ? Math.max(20, window.innerWidth - 260) : 20,
         y: 90,
     }));
-    const [floatSize, setFloatSize] = useState({ width: 220, height: 160 });
+    const [floatSize, setFloatSize] = useState({ width: 220, height: 210 });
     const floatDragRef = useRef<{ startX: number; startY: number; posX: number; posY: number } | null>(null);
     const floatResizeRef = useRef<{ startX: number; startY: number; width: number; height: number } | null>(null);
     // Pan state
@@ -84,6 +98,15 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
     const current = pages[pageIndex];
     const isVideo = current?.mediaType === "video";
     const canDraw = drawingEnabled && !isVideo;
+    const timerBackground = secondsRemaining === 0 && timerColor === DEFAULT_TIMER_COLOR ? EXPIRED_TIMER_COLOR : timerColor;
+    const timerForeground = timerTextColor(timerBackground);
+
+    useLayoutEffect(() => {
+        const note = dockedTimerNoteRef.current;
+        if (!note) return;
+        note.style.height = "auto";
+        note.style.height = `${note.scrollHeight}px`;
+    }, [timerNote, timerPoppedOut]);
 
     const markDirty = useCallback(() => { dirtyRef.current = true; setDirty(true); }, []);
 
@@ -232,7 +255,7 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
         const dy = e.clientY - floatResizeRef.current.startY;
         setFloatSize({
             width: Math.max(180, floatResizeRef.current.width + dx),
-            height: Math.max(120, floatResizeRef.current.height + dy),
+            height: Math.max(210, floatResizeRef.current.height + dy),
         });
     }, []);
 
@@ -243,7 +266,7 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
     // Keyboard navigation
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
-            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLVideoElement) return;
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLVideoElement) return;
             if (e.key === "ArrowRight" || e.key === " ") goNext();
             if (e.key === "ArrowLeft") goPrev();
             if (e.key === "+") setZoom((z) => Math.min(z + ZOOM_STEP, MAX_ZOOM));
@@ -330,20 +353,44 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
                 </div>
 
                 {!timerPoppedOut ? (
-                    <form onSubmit={(event) => { event.preventDefault(); secondsRemaining === 0 ? resetTimer() : startTimer(); }} className={`flex items-center gap-1 rounded px-1 py-0.5 ${secondsRemaining === 0 ? "bg-yellow-400 animate-pulse" : "bg-gray-800"}`}>
+                    <form
+                        aria-label="Lesson timer"
+                        onSubmit={(event) => { event.preventDefault(); secondsRemaining === 0 ? resetTimer() : startTimer(); }}
+                        className={`flex items-center flex-wrap gap-1 rounded px-1 py-0.5 ${secondsRemaining === 0 ? "animate-pulse" : ""}`}
+                        style={{ backgroundColor: timerBackground, color: timerForeground }}
+                    >
                         <input
                             type="number"
                             min="1"
                             step="1"
                             value={timerMinutes}
                             onChange={(event) => setTimerMinutes(event.target.value)}
-                            className="w-14 bg-transparent text-center text-sm text-white outline-none"
+                            className="w-14 bg-transparent text-center text-sm outline-none"
                             placeholder="Min"
                             aria-label="Timer minutes"
                         />
-                        <span className={`min-w-[42px] text-center text-xs font-mono ${secondsRemaining === 0 ? "text-gray-950" : "text-white"}`}>
+                        <span className="min-w-[42px] text-center text-xs font-mono">
                             {formatTimer(secondsRemaining)}
                         </span>
+                        <input
+                            type="color"
+                            value={timerColor}
+                            onChange={(event) => setTimerColor(event.target.value)}
+                            aria-label="Timer color"
+                            title="Timer color"
+                            className="w-7 h-7 cursor-pointer rounded border-0 bg-transparent p-0"
+                        />
+                        <textarea
+                            ref={dockedTimerNoteRef}
+                            value={timerNote}
+                            onChange={(event) => setTimerNote(event.target.value)}
+                            maxLength={80}
+                            aria-label="Timer note"
+                            placeholder="Add note"
+                            rows={1}
+                            wrap="soft"
+                            className="w-32 resize-none overflow-hidden rounded bg-gray-800 px-2 py-1 text-xs text-white placeholder:text-gray-400 outline-none"
+                        />
                         <button
                             type="submit"
                             className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs"
@@ -678,24 +725,46 @@ const LessonViewer: React.FC<Props> = ({ lesson, onClose, onSaveAnnotation }) =>
                     </div>
                     <form
                         onSubmit={(event) => { event.preventDefault(); secondsRemaining === 0 ? resetTimer() : startTimer(); }}
-                        className={`flex-1 flex flex-col items-center justify-center gap-2 p-2 ${secondsRemaining === 0 ? "bg-yellow-400 animate-pulse" : ""}`}
+                        aria-label="Lesson timer"
+                        className={`flex-1 min-h-0 flex flex-col items-center justify-center gap-1 p-2 ${secondsRemaining === 0 ? "animate-pulse" : ""}`}
+                        style={{ backgroundColor: timerBackground, color: timerForeground }}
                     >
-                        <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={timerMinutes}
-                            onChange={(event) => setTimerMinutes(event.target.value)}
-                            className="w-16 bg-gray-800 text-center text-sm text-white outline-none rounded px-2 py-1"
-                            placeholder="Min"
-                            aria-label="Timer minutes"
-                        />
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="number"
+                                min="1"
+                                step="1"
+                                value={timerMinutes}
+                                onChange={(event) => setTimerMinutes(event.target.value)}
+                                className="w-16 bg-gray-800 text-center text-sm text-white outline-none rounded px-2 py-1"
+                                placeholder="Min"
+                                aria-label="Timer minutes"
+                            />
+                            <input
+                                type="color"
+                                value={timerColor}
+                                onChange={(event) => setTimerColor(event.target.value)}
+                                aria-label="Timer color"
+                                title="Timer color"
+                                className="w-7 h-7 cursor-pointer rounded border-0 bg-transparent p-0"
+                            />
+                        </div>
                         <span
-                            className={`font-mono font-bold ${secondsRemaining === 0 ? "text-gray-950" : "text-white"}`}
-                            style={{ fontSize: Math.max(18, Math.min(floatSize.width, floatSize.height) / 3.2) }}
+                            className="font-mono font-bold leading-none"
+                            style={{ fontSize: Math.max(18, Math.min(floatSize.width / 4, floatSize.height / 5)) }}
                         >
                             {formatTimer(secondsRemaining)}
                         </span>
+                        <textarea
+                            value={timerNote}
+                            onChange={(event) => setTimerNote(event.target.value)}
+                            maxLength={80}
+                            aria-label="Timer note"
+                            placeholder="Add note"
+                            rows={2}
+                            wrap="soft"
+                            className="w-full min-h-[3rem] flex-1 resize-none overflow-y-auto rounded bg-gray-800 px-2 py-1 text-center text-xs text-white placeholder:text-gray-400 outline-none"
+                        />
                         <div className="flex items-center gap-1">
                             <button
                                 type="submit"

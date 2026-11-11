@@ -83,6 +83,11 @@ Videos use the browser's playback controls and do not play or loop automatically
 drawing annotations are available on image and custom text slides only. Video
 format support depends on the viewer's browser.
 
+The lesson viewer timer supports a custom background color and a short, wrapping
+note. The popped-out note box expands as the timer is resized. Both settings
+remain available when the timer is popped out or docked and are kept only while
+the lesson viewer is open.
+
 ## TODO
 
 - [x] Include eslint and prettier.
