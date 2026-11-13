@@ -101,25 +101,29 @@ export interface Character {
 
 }
 
-export interface BaseCharacterFirestore {
+export interface CharacterAnimationFields {
+  transformThresholds?: number[];
+  transformAnimations?: string[];
+  transformTempAnimations?: string[];
+  actionAnimations?: string[];
+  damageAnimations?: string[];
+  defeatAnimations?: string[];
+  woundedAnimations?: string[];
+}
+
+export interface BaseCharacterFirestore extends CharacterAnimationFields {
   id?: string;
   name?: string;
   defaultAnimation?: string;
   animation?: string;
   hp?: number;
   maxHp?: number;
-  transformThresholds?: number[];
-  transformAnimations?: string[];
-  transformTempAnimations?: string[];
-  actionAnimations?: string[]; // per-form action animation Storage paths
-  damageAnimations?: string[]; // per-form damage animation Storage paths
-  defeatAnimations?: string[]; // per-form defeat animation Storage paths
-  woundedAnimations?: string[]; // per-form wounded animation Storage paths
   stillFrames?: Partial<Record<'default' | 'earnXp' | 'loseHp' | 'wounded', string>>;
 }
 
-export interface UserCharacterDataFirestore {
+export interface UserCharacterDataFirestore extends CharacterAnimationFields {
   id?: string;
+  name?: string;
   xp?: number;
   level?: number;
   hp?: number;
@@ -139,5 +143,4 @@ export interface Prayer {
   createdAt?: number;
   updatedAt?: number;
 }
-
 

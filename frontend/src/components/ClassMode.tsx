@@ -15,58 +15,19 @@ const PixelCanvasEditor = lazy(() => import("./PixelCanvasEditor"));
 import { getDownloadURL, ref as storageRef } from "firebase/storage";
 import { storage } from "../firebase";
 import { Character } from "../types/character";
-import { totalXpForLevel, xpThreshold } from "../utils/xpUtils";
+import { totalXpForLevel } from "../utils/xpUtils";
 import { addUserCharacter, getUserCharacter, uploadCharacterStill } from "../services/characterService";
 import { getCommonGroupSkills, getMissingGroupSkills, importMissingGroupSkills } from "../utils/groupSkillImport";
 import RecalculateTotalXpButton from "./RecalculateTotalXpButton";
+import { StillFrame } from "./classmode/CharacterStill";
+import CharacterProgressCard from "./classmode/CharacterProgressCard";
+export type { StillState, StillFrames } from "./classmode/CharacterStill";
+import useClassModeProgress from "./classmode/useClassModeProgress";
 
 const makeSkillKey = (charId: string, skillId: string) => `${charId}_${skillId}`;
 
 // Draft shape for the batch-add skill form: each subskill can itself carry nested subskills.
 type SubskillDraft = { name: string; subskills: SubskillDraft[] };
-
-// Renders a character's animation paused on its first frame instead of autoplaying it.
-// Used anywhere ClassMode shows a lightweight preview (base-character picker, selected
-// character cards) so selecting many characters doesn't play many videos at once.
-const StillFrame: React.FC<{ url?: string; className?: string }> = ({ url, className }) => {
-    if (!url) return <div className={`${className ?? 'w-full h-full'} flex items-center justify-center text-[10px] text-gray-400`}>No preview</div>;
-    return (
-        <video
-            src={url}
-            muted
-            playsInline
-            preload="metadata"
-            onLoadedData={(e) => { e.currentTarget.currentTime = 0.05; }}
-            className={`${className ?? 'w-full h-full'} object-cover pointer-events-none`}
-        />
-    );
-};
-
-export type StillState = 'default' | 'earnXp' | 'loseHp' | 'wounded';
-export type StillFrames = Partial<Record<StillState, string>>;
-const STILL_EVENT_MS = 20000;
-const WOUNDED_HP = 50;
-
-// Responsive still frame: shows the Storage image (path stored in the character's Firestore
-// `stillFrames` map) for the current state, falling back to the default image, then the paused video.
-const ResponsiveStill: React.FC<{ frames?: StillFrames; state: StillState; videoUrl?: string; className?: string; version?: number }> = ({ frames, state, videoUrl, className, version }) => {
-    // URLs are keyed by Storage path and every state's image is resolved up front in parallel,
-    // so switching states (e.g. losing HP) swaps instantly instead of waiting on a fetch.
-    const [urls, setUrls] = useState<Record<string, string>>({});
-    const pathsKey = Array.from(new Set(Object.values(frames ?? {}).filter(Boolean))).sort().join('|');
-    React.useEffect(() => {
-        let cancelled = false;
-        if (version) setUrls({});
-        pathsKey.split('|').filter(Boolean).forEach(path => {
-            fetchAnimUrl(path).then(url => { if (!cancelled && url) setUrls(prev => (prev[path] === url ? prev : { ...prev, [path]: url })); });
-        });
-        return () => { cancelled = true; };
-    }, [pathsKey, version]);
-    const path = frames?.[state] || frames?.default;
-    const url = (path && urls[path]) || (frames?.default ? urls[frames.default] : undefined);
-    if (!url) return <StillFrame url={videoUrl} className={className} />;
-    return <img src={url} alt="" style={{ imageRendering: 'pixelated' }} className={`${className ?? 'w-full h-full'} object-contain pointer-events-none`} />;
-};
 
 interface Props {
     uid?: string | null;
@@ -99,33 +60,10 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
     const [groupAssignment, setGroupAssignment] = useState('');
     const [xpAwardAmount, setXpAwardAmount] = useState('10');
     const [hpAwardAmount, setHpAwardAmount] = useState(10);
-    const [xpAnimatingFull, setXpAnimatingFull] = useState<Record<string, boolean>>({});
-    const [stillEvents, setStillEvents] = useState<Record<string, 'earnXp' | 'loseHp'>>({});
-    const stillTimers = useRef<Record<string, number>>({});
-    const triggerStill = (charId: string, event: 'earnXp' | 'loseHp') => {
-        setStillEvents(prev => ({ ...prev, [charId]: event }));
-        if (stillTimers.current[charId]) window.clearTimeout(stillTimers.current[charId]);
-        stillTimers.current[charId] = window.setTimeout(() => {
-            setStillEvents(prev => { const next = { ...prev }; delete next[charId]; return next; });
-        }, STILL_EVENT_MS);
-    };
-    // Healing ends a lingering lose-HP image so the card goes back to default.
-    const clearLoseHpStill = (charId: string) => {
-        if (stillEvents[charId] !== 'loseHp') return;
-        if (stillTimers.current[charId]) window.clearTimeout(stillTimers.current[charId]);
-        setStillEvents(prev => { const next = { ...prev }; delete next[charId]; return next; });
-    };
-    React.useEffect(() => () => { Object.values(stillTimers.current).forEach(t => window.clearTimeout(t)); }, []);
-    const [xpLevelToast, setXpLevelToast] = useState<Record<string, boolean>>({});
-    const xpAnimTimeouts = useRef<Record<string, number[]>>({});
     const [transformReadyList, setTransformReadyList] = useState<string[]>([]);
     const [skippedTransforms, setSkippedTransforms] = useState<string[]>([]);
     const [applyConfirm, setApplyConfirm] = useState<number | null>(null);
     const applyConfirmTimeout = useRef<number | null>(null);
-    const [xpAwardConfirm, setXpAwardConfirm] = useState<{ amount: number; count: number } | null>(null);
-    const xpAwardConfirmTimeout = useRef<number | null>(null);
-    const [hpAwardConfirm, setHpAwardConfirm] = useState<string | null>(null);
-    const hpAwardConfirmTimeout = useRef<number | null>(null);
     const [groupAssignConfirm, setGroupAssignConfirm] = useState<{ group: string; names: string[] } | null>(null);
     const [pendingGroupSkillImport, setPendingGroupSkillImport] = useState<{ group: string; candidates: GroupSkillImportCandidate[] } | null>(null);
     const groupAssignConfirmTimeout = useRef<number | null>(null);
@@ -184,11 +122,15 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
     };
 
     // Include base characters plus any per-user-only characters from `userCharacters`.
-    const allChars = (() => {
+    const allChars = React.useMemo(() => {
         const base = characters || [];
         const extra = Object.values(userCharacters || {}).filter((u: any) => !base.find((b: any) => b.id === u.id));
         return [...base, ...extra];
-    })();
+    }, [characters, userCharacters]);
+    const {
+        xpAnimatingFull, xpLevelToast, setXpLevelToast, stillEvents, xpAwardConfirm, hpAwardConfirm,
+        changeHp, setCharHp, awardXpToSelected, awardXpToGroup, changeHpForSelected, changeXp,
+    } = useClassModeProgress({ allChars, userCharacters, setUserCharacters, saveCharacter, selected, xpAwardAmount });
     const characterGroups = Array.from(new Set(Object.values(userCharacters)
         .map((character: any) => character.characterGroup?.trim())
         .filter(Boolean))) as string[];
@@ -353,15 +295,6 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showAddCharacter, characters]);
 
-    // cleanup XP animation timeouts on unmount
-    React.useEffect(() => {
-        return () => {
-            for (const key of Object.keys(xpAnimTimeouts.current)) {
-                for (const t of xpAnimTimeouts.current[key] || []) window.clearTimeout(t);
-            }
-        };
-    }, []);
-
     // Characters belonging to the currently selected group filter (or all characters if no filter).
     const groupChars = groupFilter
         ? allChars.filter((character: any) => userCharacters[character.id]?.characterGroup?.trim() === groupFilter)
@@ -474,155 +407,10 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
         </div>
     );
 
-    const changeHp = async (charId: string, delta: number) => {
-        const ch = allChars.find((x: any) => x.id === charId) ?? {} as any;
-        const uc = userCharacters[charId] ?? ch ?? {};
-        const curHp = typeof uc.hp === 'number' ? uc.hp : (ch.hp ?? 100);
-        const maxHp = typeof uc.maxHp === 'number' ? uc.maxHp : (ch.maxHp ?? 100);
-        const newHp = Math.max(0, Math.min(maxHp, curHp + delta));
-        if (newHp < curHp) triggerStill(charId, 'loseHp');
-        else if (newHp > curHp) clearLoseHpStill(charId);
-        const updated = { ...uc, hp: newHp };
-        setUserCharacters((prev: Record<string, any>) => ({ ...prev, [charId]: updated }));
-        try { await saveCharacter(updated); } catch (e) { console.error(e); }
-    };
-
-    // Used by TrainingMode to persist HP damage (absolute value, not delta)
-    const setCharHp = async (charId: string, hp: number) => {
-        const ch = allChars.find((x: any) => x.id === charId) ?? {} as any;
-        const uc = userCharacters[charId] ?? ch ?? {};
-        const prevHp = typeof uc.hp === 'number' ? uc.hp : (ch.hp ?? 100);
-        if (hp < prevHp) triggerStill(charId, 'loseHp');
-        else if (hp > prevHp) clearLoseHpStill(charId);
-        const updated = { ...uc, hp };
-        setUserCharacters((prev: Record<string, any>) => ({ ...prev, [charId]: updated }));
-        try { await saveCharacter(updated); } catch (e) { console.error(e); }
-    };
-
-    // change XP with level-up animation when crossing thresholds
-    const awardXpToSelected = () => {
-        const amount = Math.trunc(Number(xpAwardAmount));
-        if (selected.length === 0 || !Number.isFinite(amount) || amount === 0) return;
-        for (const charId of selected) changeXp(charId, amount);
-        if (xpAwardConfirmTimeout.current) window.clearTimeout(xpAwardConfirmTimeout.current);
-        setXpAwardConfirm({ amount, count: selected.length });
-        xpAwardConfirmTimeout.current = window.setTimeout(() => setXpAwardConfirm(null), 3000) as unknown as number;
-    };
-
-    const awardXpToGroup = (group: string, points: number) => {
-        const ids = allChars
-            .filter((c: any) => (userCharacters[c.id]?.characterGroup || '').trim() === group)
-            .map((c: any) => c.id);
-        for (const id of ids) changeXp(id, points);
-    };
-
     const goalCharacterOptions = allChars.map((c: any) => ({
         id: c.id,
         name: (userCharacters[c.id] && (userCharacters[c.id].playerName || userCharacters[c.id].name)) || c.name || c.id,
     }));
-
-    const changeHpForSelected = (delta: number) => {
-        if (selected.length === 0) return;
-        const boundaryHp = delta < 0 ? 0 : 100;
-        const eligibleCharacterIds = selected.filter(charId => {
-            const ch = allChars.find((character: any) => character.id === charId) ?? {} as any;
-            const uc = userCharacters[charId] ?? ch;
-            const hp = typeof uc.hp === 'number' ? uc.hp : (ch.hp ?? 100);
-            const maxHp = typeof uc.maxHp === 'number' ? uc.maxHp : (ch.maxHp ?? 100);
-            return delta < 0 ? hp > 0 : hp < maxHp;
-        });
-        const cappedCount = selected.length - eligibleCharacterIds.length;
-
-        for (const charId of eligibleCharacterIds) changeHp(charId, delta);
-
-        const changedCount = eligibleCharacterIds.length;
-        const action = delta < 0 ? 'subtracted from' : 'added to';
-        const changedMessage = changedCount > 0
-            ? `${Math.abs(delta)} HP ${action} ${changedCount} character${changedCount !== 1 ? 's' : ''}.`
-            : '';
-        const cappedMessage = cappedCount > 0
-            ? `${cappedCount} character${cappedCount !== 1 ? 's' : ''} already ${cappedCount === 1 ? 'has' : 'have'} ${boundaryHp} HP.`
-            : '';
-
-        if (hpAwardConfirmTimeout.current) window.clearTimeout(hpAwardConfirmTimeout.current);
-        setHpAwardConfirm([cappedMessage, changedMessage].filter(Boolean).join(' '));
-        hpAwardConfirmTimeout.current = window.setTimeout(() => setHpAwardConfirm(null), 3000) as unknown as number;
-    };
-
-    const changeXp = async (charId: string, delta: number) => {
-        const ch = allChars.find((x: any) => x.id === charId) ?? {} as any;
-        const uc = userCharacters[charId] ?? ch ?? {};
-        const curXp = typeof uc.xp === 'number' ? uc.xp : (ch.xp ?? 0);
-        const curLevel = typeof uc.level === 'number' ? uc.level : (ch.level ?? 1);
-        // keep spendable currencyXp (store balance) in sync with every XP award
-        const existingCurrency = typeof uc.currencyXp === 'number'
-            ? Math.max(0, Math.floor(uc.currencyXp))
-            : totalXpForLevel(curLevel, curXp);
-        const newCurrency = existingCurrency + delta;
-        if (delta > 0) triggerStill(charId, 'earnXp');
-        let tmpXp = curXp + delta;
-        let tmpLevel = curLevel;
-        let nextXP = xpThreshold(tmpLevel);
-        // detect if we will level up
-        if (tmpXp < nextXP) {
-            // simple update, no animation
-            const updated = { ...uc, xp: tmpXp, level: tmpLevel, currencyXp: newCurrency };
-            setUserCharacters((prev: Record<string, any>) => ({ ...prev, [charId]: updated }));
-            try { await saveCharacter(updated); } catch (e) { console.error(e); }
-            return;
-        }
-
-        // compute leftovers for each level-up step
-        const leftovers: number[] = [];
-        let tXp = tmpXp;
-        let tLvl = tmpLevel;
-        while (tXp >= xpThreshold(tLvl)) {
-            const threshold = xpThreshold(tLvl);
-            const leftover = tXp - threshold;
-            leftovers.push(leftover);
-            tXp = leftover;
-            tLvl++;
-        }
-
-        // run sequential animation steps
-        const fillDelay = 700; // ms to show full bar
-        const betweenDelay = 300; // pause before next level fill
-
-        // clear existing timeouts for this char
-        const existing = xpAnimTimeouts.current[charId] || [];
-        for (const t of existing) window.clearTimeout(t);
-        xpAnimTimeouts.current[charId] = [];
-
-        const runStep = (index: number, currentLevel: number, currentXpValue: number) => {
-            // animate fill to 100%
-            setXpAnimatingFull(prev => ({ ...prev, [charId]: true }));
-            const t1 = window.setTimeout(async () => {
-                // after showing full, advance level and set xp to leftover
-                setXpAnimatingFull(prev => ({ ...prev, [charId]: false }));
-                const newLevel = currentLevel + 1;
-                const newXpVal = leftovers[index];
-                const updated = { ...uc, xp: newXpVal, level: newLevel, currencyXp: newCurrency } as any;
-                setUserCharacters((prev) => ({ ...prev, [charId]: updated }));
-                try { await saveCharacter(updated); } catch (err) { console.error(err); }
-
-                // show brief level toast
-                setXpLevelToast(prev => ({ ...prev, [charId]: true }));
-                const tToast = window.setTimeout(() => setXpLevelToast(prev => ({ ...prev, [charId]: false })), 900);
-                xpAnimTimeouts.current[charId].push(tToast as unknown as number);
-
-                // schedule next step or finish
-                if (index + 1 < leftovers.length) {
-                    const tNext = window.setTimeout(() => runStep(index + 1, newLevel, newXpVal), betweenDelay);
-                    xpAnimTimeouts.current[charId].push(tNext as unknown as number);
-                }
-            }, fillDelay);
-            xpAnimTimeouts.current[charId].push(t1 as unknown as number);
-        };
-
-        // start sequence
-        runStep(0, curLevel, curXp);
-    };
-
 
     const toggleEditSkill = (charId: string, skillId: string) => {
         const key = makeSkillKey(charId, skillId);
@@ -879,66 +667,16 @@ const ClassMode: React.FC<Props> = ({ uid, characters, userCharacters, setUserCh
                                         </div>
                                     </div>
 
-                                    {/* Animation window + small HP/XP bars + level */}
-                                    {(() => {
-                                        const uc = userCharacters[c.id] ?? c;
-                                        const hp = typeof uc.hp === 'number' ? uc.hp : (c.hp ?? 100);
-                                        const maxHp = typeof uc.maxHp === 'number' ? uc.maxHp : (c.maxHp ?? 100);
-                                        const hpPct = Math.max(0, Math.min(100, Math.round((hp / (maxHp || 1)) * 100)));
-                                        const xp = typeof uc.xp === 'number' ? uc.xp : (c.xp ?? 0);
-                                        const level = typeof uc.level === 'number' ? uc.level : (c.level ?? 1);
-                                        const totalXp = typeof uc.currencyXp === 'number'
-                                            ? Math.max(0, Math.floor(uc.currencyXp))
-                                            : totalXpForLevel(level, xp);
-                                        const nextLevelXP = xpThreshold(level);
-                                        const xpPercent = Math.max(0, Math.min(100, Math.round((xp / Math.max(1, nextLevelXP)) * 100)));
-                                        const animUrl = animUrls[c.id];
-                                        const stillFrames: StillFrames | undefined = uc.stillFrames ?? (characters || []).find((b: any) => b.id === c.id)?.stillFrames;
-                                        const stillState: StillState = stillEvents[c.id] ?? (hp <= WOUNDED_HP ? 'wounded' : 'default');
-                                        return (
-                                            <div className="mt-2">
-                                                <div className="w-full bg-white border rounded overflow-hidden flex items-center justify-center relative">
-                                                    {animLoading[c.id] ? (
-                                                        <div className="w-6 h-6 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
-                                                    ) : ((animUrl || stillFrames) && selected.includes(c.id)) ? (
-                                                        <ResponsiveStill frames={stillFrames} state={stillState} videoUrl={animUrl} className="w-full h-40 " version={stillVersion} />
-                                                    ) : (
-                                                        <div className="text-xs text-gray-400 py-6">{selected.includes(c.id) ? 'No preview' : 'Click name to select'}</div>
-                                                    )}
-                                                </div>
-
-                                                {isAdmin(uid) && selected.includes(c.id) && (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); setEditingStill({ id: c.id, name: String(uc.name ?? c.name ?? '') }); }}
-                                                        className="mt-1 px-2 py-0.5 text-xs bg-cyan-600 hover:bg-cyan-700 text-white rounded"
-                                                    >
-                                                        🎨 Edit image
-                                                    </button>
-                                                )}
-
-                                                <div className="mt-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="text-xs text-gray-600">HP {hp}/{maxHp}</div>
-                                                        <span className="text-xs font-normal text-cyan-700">Total XP: {totalXp}</span>
-                                                        <div className="text-sm font-medium">Level {level} </div>
-                                                    </div>
-                                                    <div className="mt-1 flex items-center gap-2">
-                                                        <div className="flex-1 bg-red-100 rounded h-2 overflow-hidden">
-                                                            <div className="h-2 transition-all duration-1000 ease-out" style={{ width: `${hpPct}%`, background: '#3ce6a2', willChange: 'width' }} />
-                                                        </div>
-                                                        <div className="flex items-center gap-1">
-                                                            <button onClick={(e) => { e.stopPropagation(); changeHp(c.id, -10); }} disabled={controlsDisabled} className="px-2 py-0.5 text-xs bg-gray-100 rounded">-</button>
-                                                            <button onClick={(e) => { e.stopPropagation(); changeHp(c.id, 10); }} disabled={controlsDisabled} className="px-2 py-0.5 text-xs bg-gray-100 rounded">+</button>
-                                                        </div>
-                                                    </div>
-                                                    <div onClick={(e) => { e.stopPropagation(); if (!controlsDisabled) changeXp(c.id, 25); }} title="Click to add 25 XP" className={`mt-1 w-full bg-blue-100 rounded h-2 overflow-hidden ${controlsDisabled ? '' : 'cursor-pointer'}`}>
-                                                        <div className="h-2 transition-all duration-1000 ease-out" style={{ width: `${xpAnimatingFull[c.id] ? 100 : xpPercent}%`, background: '#0ea5e9', willChange: 'width', boxShadow: xpLevelToast[c.id] ? '0 0 10px rgba(14,165,233,0.6)' : undefined }} />
-                                                    </div>
-                                                    <div className="text-xs text-gray-500 mt-1 text-right">{xp}/{nextLevelXP} XP</div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
+                                    <CharacterProgressCard
+                                        c={c} uc={userCharacters[c.id] ?? c}
+                                        baseStillFrames={characters.find(base => base.id === c.id)?.stillFrames}
+                                        animUrl={animUrls[c.id]} animLoading={animLoading[c.id]} selected={selected.includes(c.id)}
+                                        stillEvent={stillEvents[c.id]} stillVersion={stillVersion} isAdmin={isAdmin(uid)}
+                                        controlsDisabled={controlsDisabled} xpAnimatingFull={xpAnimatingFull[c.id]} xpLevelToast={xpLevelToast[c.id]}
+                                        onEditStill={name => setEditingStill({ id: c.id, name })}
+                                        onChangeHp={delta => { void changeHp(c.id, delta); }}
+                                        onChangeXp={delta => { void changeXp(c.id, delta); }}
+                                    />
 
                                     {expandedSkills[c.id] && (() => {
                                         const ucForSkills = userCharacters[c.id] ?? c;

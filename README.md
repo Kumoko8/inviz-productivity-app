@@ -114,6 +114,16 @@ Firestore-specific values are shown read-only. Saving updates only the selected
 field. Reload the dashboard to apply all saved changes to character data.
 Editing an `id` field does not rename the Firestore document.
 
+Character animation fallback fields are merged by
+`frontend/src/utils/characterAnimationFallback.ts`. User values, including
+empty arrays, take precedence over shared base values. Character subcollection
+and animation persistence live in separate services and remain re-exported by
+`characterService.ts` for existing callers.
+
+Class Mode's individual and group XP/HP actions are managed by
+`frontend/src/components/classmode/useClassModeProgress.ts`; the progress card
+and still-image display are separate components in the same directory.
+
 ## TODO
 
 - [x] Include eslint and prettier.

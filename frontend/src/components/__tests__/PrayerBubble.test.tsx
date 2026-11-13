@@ -1,94 +1,92 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
-// Mock firebase auth/db and firestore helpers used by PrayerBubble
-vi.mock('../../firebase', () => ({
-    auth: { currentUser: { uid: 'test-uid' } },
-    db: {},
+const mocks = vi.hoisted(() => ({
+    collection: vi.fn(),
+    getDocs: vi.fn(),
+    getDrawings: vi.fn(),
+    addItem: vi.fn(),
+    updateItem: vi.fn(),
+    deleteItem: vi.fn(),
 }));
 
-const mockGetDocs = vi.fn();
-const mockCollection = vi.fn();
-
-vi.mock('firebase/firestore', async () => {
-    const actual = await vi.importActual('firebase/firestore');
-    return {
-        ...actual,
-        collection: (db: any, ...rest: any[]) => mockCollection(db, ...rest),
-        getDocs: (...args: any[]) => mockGetDocs(...args),
-    };
-});
-
-const addPrayerMock = vi.fn();
-const updatePrayerMock = vi.fn();
-const deletePrayerMock = vi.fn();
-
+vi.mock('../../firebase', () => ({ auth: { currentUser: { uid: 'test-uid' } }, db: {} }));
+vi.mock('firebase/firestore', () => ({ collection: mocks.collection, getDocs: mocks.getDocs }));
+vi.mock('../../services/drawingService', () => ({
+    getDrawings: mocks.getDrawings,
+    deleteDrawing: vi.fn(),
+}));
 vi.mock('../../services/characterService', () => ({
-    addPrayerToCharacter: (...args: any[]) => addPrayerMock(...args),
-    updatePrayerForCharacter: (...args: any[]) => updatePrayerMock(...args),
-    deletePrayerFromCharacter: (...args: any[]) => deletePrayerMock(...args),
+    addItemToCharacter: mocks.addItem,
+    updateItemForCharacter: mocks.updateItem,
+    deleteItemFromCharacter: mocks.deleteItem,
 }));
 
 import PrayerBubble from '../PrayerBubble';
 
+beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getDocs.mockResolvedValue({ docs: [] });
+    mocks.getDrawings.mockResolvedValue([]);
+    mocks.addItem.mockResolvedValue('new-id');
+    mocks.updateItem.mockResolvedValue(undefined);
+    mocks.deleteItem.mockResolvedValue(undefined);
+});
+afterEach(cleanup);
+
+function openPrayers() {
+    fireEvent.click(screen.getByRole('button', { name: /show prayers/i }));
+}
+
 describe('PrayerBubble', () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
+    it('adds a prayer and displays it only after a matching search', async () => {
+        render(<PrayerBubble characterId="char1" />);
+        openPrayers();
+        await waitFor(() => expect(mocks.getDocs).toHaveBeenCalled());
+        expect(mocks.collection).toHaveBeenCalledWith(expect.anything(), 'users', 'test-uid', 'characters', 'char1', 'prayers');
+        expect(mocks.getDrawings).toHaveBeenCalledWith('test-uid', 'char1');
+
+        fireEvent.change(screen.getByPlaceholderText('Enter prayer...'), { target: { value: 'Please help' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+        await waitFor(() => expect(mocks.addItem).toHaveBeenCalledWith(
+            'test-uid', 'char1', 'prayers', { text: 'Please help', color: '#bde0fe' },
+        ));
+        expect(screen.queryByText('Please help')).not.toBeInTheDocument();
+        expect(screen.getByText('Search by word or date to see prayers.')).toBeInTheDocument();
+
+        fireEvent.change(screen.getByLabelText('Search keyword'), { target: { value: 'help' } });
+        expect(await screen.findByText('Please help')).toBeInTheDocument();
     });
 
-    it('adds a prayer and calls addPrayerToCharacter', async () => {
-        // start with no prayers
-        mockGetDocs.mockResolvedValue({ docs: [] });
-
-        render(<PrayerBubble characterId="char1" />);
-
-        const input = screen.getByPlaceholderText('Enter prayer...');
-        fireEvent.change(input, { target: { value: 'Please help' } });
-
-        const addBtn = screen.getByText('Add Prayer');
-        addPrayerMock.mockResolvedValue('new-id');
-
-        fireEvent.click(addBtn);
-
-        await waitFor(() => {
-            expect(addPrayerMock).toHaveBeenCalledWith('test-uid', 'char1', expect.objectContaining({ text: 'Please help' }));
+    it('updates the color of a matching prayer', async () => {
+        mocks.getDocs.mockResolvedValue({
+            docs: [{ id: 'p1', data: () => ({ text: 'Hello', color: '#ff0000' }) }],
         });
+        render(<PrayerBubble characterId="char1" />);
+        openPrayers();
+        fireEvent.change(screen.getByLabelText('Search keyword'), { target: { value: 'hello' } });
+        await screen.findByText('Hello');
+
+        fireEvent.change(screen.getByLabelText('Set color for prayers'), { target: { value: '#00ff00' } });
+        await waitFor(() => expect(mocks.updateItem).toHaveBeenCalledWith(
+            'test-uid', 'char1', 'prayers', 'p1', { color: '#00ff00' },
+        ));
+        expect(screen.getByLabelText('Set color for prayers')).toHaveValue('#00ff00');
     });
 
-    it('renders existing prayer and updates color', async () => {
-        // one existing prayer
-        mockGetDocs.mockResolvedValue({ docs: [{ id: 'p1', data: () => ({ text: 'Hello', color: '#ff0000' }) }] });
-
-        render(<PrayerBubble characterId="char1" />);
-
-        // wait for the prayer to appear
-        await waitFor(() => expect(screen.getByText('Hello')).toBeInTheDocument());
-
-        // find the color input (there is one per prayer)
-        const colorInputs = screen.getAllByLabelText('Set color for prayer');
-        expect(colorInputs.length).toBeGreaterThan(0);
-
-        // simulate color change
-        fireEvent.change(colorInputs[0], { target: { value: '#00ff00' } });
-
-        await waitFor(() => {
-            expect(updatePrayerMock).toHaveBeenCalledWith('test-uid', 'char1', 'p1', { color: '#00ff00' });
+    it('deletes a matching prayer using the character subcollection service', async () => {
+        mocks.getDocs.mockResolvedValue({
+            docs: [{ id: 'p2', data: () => ({ text: 'To delete', color: '#ffffff' }) }],
         });
-    });
-
-    it('deletes a prayer when delete is clicked', async () => {
-        mockGetDocs.mockResolvedValue({ docs: [{ id: 'p2', data: () => ({ text: 'To delete', color: '#fff' }) }] });
-
         render(<PrayerBubble characterId="char1" />);
+        openPrayers();
+        fireEvent.change(screen.getByLabelText('Search keyword'), { target: { value: 'delete' } });
+        await screen.findByText('To delete');
 
-        await waitFor(() => expect(screen.getByText('To delete')).toBeInTheDocument());
-
-        const deleteBtn = screen.getAllByText('✕')[0];
-        fireEvent.click(deleteBtn);
-
-        await waitFor(() => {
-            expect(deletePrayerMock).toHaveBeenCalledWith('test-uid', 'char1', 'p2');
-        });
+        fireEvent.click(screen.getByRole('button', { name: '✕' }));
+        await waitFor(() => expect(mocks.deleteItem).toHaveBeenCalledWith('test-uid', 'char1', 'prayers', 'p2'));
+        expect(screen.queryByText('To delete')).not.toBeInTheDocument();
+        expect(screen.getByText('No matching prayers.')).toBeInTheDocument();
     });
 });
