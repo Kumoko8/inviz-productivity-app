@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { fetchAnimUrl as loadAnimationUrl } from "../utils/storageUtils";
 
 export default function useCharacterTransform({
@@ -14,6 +14,9 @@ export default function useCharacterTransform({
 }) {
   const [transformPlaying, setTransformPlaying] = useState(false);
   const [transformOverlayUrl, setTransformOverlayUrl] = useState<string | null>(null);
+  const [transformFinalizing, setTransformFinalizing] = useState(false);
+  const [transformError, setTransformError] = useState<string | null>(null);
+  const finalizingRef = useRef(false);
 
   const transformIndex = typeof selectedCharacter?.transformIndex === "number" ? selectedCharacter.transformIndex : 0;
   const thresholds = selectedCharacter?.transformThresholds ?? [];
@@ -33,6 +36,7 @@ export default function useCharacterTransform({
     if (!selectedCharacter) return;
     const tempPath = tempAnims[transformIndex] || selectedCharacter.animation || "";
     try {
+      setTransformError(null);
       setTransformPlaying(true);
       if (tempPath) {
         console.debug('useCharacterTransform.handleTransform: attempting to load temp animation', { id: selectedCharacter.id, tempPath, transformIndex });
@@ -55,12 +59,16 @@ export default function useCharacterTransform({
   };
 
   const finalizeTransform = async () => {
-    if (!selectedCharacter) return;
+    if (!selectedCharacter || !transformReady || finalizingRef.current) return;
+    finalizingRef.current = true;
+    setTransformFinalizing(true);
+    setTransformPlaying(true);
+    setTransformError(null);
     const finalPath = finalAnims[transformIndex] || selectedCharacter.animation;
     const updated = { ...selectedCharacter, animation: finalPath, transformIndex: transformIndex + 1 } as any;
-    setUserCharacters((prev) => ({ ...prev, [updated.id]: updated }));
     try {
       await saveCharacter(updated);
+      setUserCharacters((prev) => ({ ...prev, [updated.id]: updated }));
       if (updated.animation) {
         try {
           const url = await loadAnimationUrl(updated.animation);
@@ -71,15 +79,21 @@ export default function useCharacterTransform({
       }
     } catch (err) {
       console.error("Error finalizing transform", err);
+      setTransformError("Could not save the transformation. Please try again.");
+    } finally {
+      setTransformOverlayUrl(null);
+      setTransformPlaying(false);
+      setTransformFinalizing(false);
+      finalizingRef.current = false;
     }
-    setTransformOverlayUrl(null);
-    setTransformPlaying(false);
   };
 
   return {
     transformPlaying,
     transformOverlayUrl,
     transformReady,
+    transformFinalizing,
+    transformError,
     controlsDisabled,
     handleTransform,
     finalizeTransform,

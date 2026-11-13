@@ -19,6 +19,7 @@ import { saveUserCharacter } from "../services/characterService";
 import useCharacterLoader from "../hooks/useCharacterLoader";
 import XPPanel from "./XPPanel";
 import CharacterControls from "./CharacterControls";
+import SkipTransformAnimationButton from "./SkipTransformAnimationButton";
 import SkillsPanel from "./SkillsPanel";
 import HPPanel from "./HPPanel";
 const TrainingMode = lazy(() => import("./training/TrainingMode"));
@@ -130,6 +131,8 @@ const Dashboard: React.FC = () => {
     transformPlaying,
     transformOverlayUrl,
     transformReady,
+    transformFinalizing,
+    transformError,
     controlsDisabled,
     handleTransform,
     finalizeTransform,
@@ -337,8 +340,10 @@ const Dashboard: React.FC = () => {
           <div className="bg-white rounded-lg p-6 shadow-lg max-w-md text-center">
             <h3 className="text-xl font-bold mb-2">Transformation Ready!</h3>
             <p className="mb-4">{selectedCharacter?.name} has reached level {selectedCharacter?.level}! Press Transform to continue!</p>
+            {transformError && <p role="alert" className="mb-4 text-sm text-red-700">{transformError}</p>}
             <div className="flex justify-center gap-4">
               <button onClick={handleTransform} className="px-4 py-2 bg-rose-500 text-white rounded">Transform</button>
+              <SkipTransformAnimationButton onSkip={finalizeTransform} />
             </div>
           </div>
         </div>
@@ -348,6 +353,9 @@ const Dashboard: React.FC = () => {
       {transformPlaying && transformOverlayUrl && (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
           <video src={transformOverlayUrl} autoPlay onEnded={finalizeTransform} className="w-3/4 h-auto max-h-[80vh]" />
+          <div className="absolute bottom-6 right-6">
+            <SkipTransformAnimationButton onSkip={finalizeTransform} disabled={transformFinalizing} />
+          </div>
         </div>
       )}
 <div className="w-full max-w-4xl">

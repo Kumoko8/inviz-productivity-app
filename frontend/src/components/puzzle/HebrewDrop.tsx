@@ -587,9 +587,9 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
                 <button onClick={clearBoard} className="ml-auto text-xs px-3 py-1 bg-gray-900 hover:bg-gray-800 text-gray-400 rounded-lg border border-gray-800 transition">Clear</button>
             </div>
 
-            <div className="flex flex-col lg:flex-row flex-1 gap-3 px-3 overflow-y-auto lg:overflow-hidden w-full max-w-3xl lg:items-start">
+            <div className="flex flex-col items-center flex-1 min-h-0 gap-3 px-3 overflow-y-auto w-full max-w-3xl">
 
-                <div className="flex flex-col items-center flex-shrink-0">
+                <div className="flex flex-col items-center flex-shrink-0 w-full" style={{ maxWidth: CANVAS_W }}>
                     {/* Target chip */}
                     {targetDef ? (
                         <div className="flex items-center gap-3 px-4 py-2 bg-gray-900/80 rounded-2xl border border-gray-800 w-full mb-1">
@@ -606,15 +606,14 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
                         </div>
                     ) : (
                         <div className="px-4 py-2 bg-gray-900/60 rounded-2xl border border-amber-900/30 w-full mb-1 text-amber-800 text-xs">
-                            Add vocab words in the Goals panel →
+                            Add vocab words in the panel below
                         </div>
                     )}
 
                     {/* Canvas + scroll controls */}
-                    <div className="relative flex-shrink-0">
+                    <div className="relative flex-shrink-0 mr-7" style={{ width: `min(calc(100% - 28px), ${CANVAS_W}px, ${50 * CANVAS_W / CANVAS_H}vh)` }}>
                         <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H}
-                            className="rounded-xl border border-white touch-none cursor-grab active:cursor-grabbing"
-                            style={{ maxWidth: '100%', maxHeight: '50vh', objectFit: 'contain' }}
+                            className="block w-full h-auto rounded-xl border border-white touch-none cursor-grab active:cursor-grabbing"
                             onWheel={handleWheel}
                             onPointerDown={handleCanvasPointerDown}
                             onPointerMove={handleCanvasPointerMove}
@@ -682,25 +681,9 @@ const HebrewDrop: React.FC<Props> = ({ onClose, allCharacters = [], onAwardXP })
                     </div>
                 </div>
 
-                {/* Desktop sidebar */}
-                <div className={`hidden lg:flex flex-col flex-shrink-0 self-stretch overflow-hidden transition-all duration-200 ${goalListOpen ? 'w-52' : 'w-8'}`}>
-                    <div className="flex items-center gap-1 pt-1 mb-1">
-                        {goalListOpen && <span className="text-xs text-white uppercase tracking-widest flex-1">Vocab</span>}
-                        <button onClick={() => setGoalListOpen(o => !o)} className="flex items-center justify-center w-6 h-6 rounded text-gray-600 hover:text-white hover:bg-gray-800 transition flex-shrink-0" title={goalListOpen ? 'Hide' : 'Show'}>
-                            <span style={{ fontSize: 10 }}>{goalListOpen ? '▶' : '◀'}</span>
-                        </button>
-                    </div>
-                    {goalListOpen && (
-                        <HebrewGoalsPanel
-                            allVocabIds={allVocabIds} targetId={targetId} groups={groups} vocabWords={vocabWords}
-                            onSaveGroups={saveGroups} onAddVocab={handleAddVocab} onDeleteVocab={handleDeleteVocab} onUpdateVocab={handleUpdateVocab}
-                        />
-                    )}
-                </div>
-
-                {/* Mobile panel */}
-                <div className="lg:hidden w-full flex-shrink-0 pb-4">
-                    <button onClick={() => setGoalListOpen(o => !o)} className="flex items-center gap-2 w-full px-3 py-2 bg-gray-900/80 border border-white rounded-2xl text-xs text-white hover:text-yellow-400 transition">
+                {/* Vocab panel */}
+                <div className="w-full flex-shrink-0 pb-4">
+                    <button onClick={() => setGoalListOpen(o => !o)} aria-expanded={goalListOpen} className="flex items-center gap-2 w-full px-3 py-2 bg-gray-900/80 border border-white rounded-2xl text-xs text-white hover:text-yellow-400 transition">
                         <span className="uppercase tracking-widest flex-1 text-left">Vocab Words</span>
                         <span style={{ fontSize: 10 }}>{goalListOpen ? '▲' : '▼'}</span>
                     </button>
