@@ -1,8 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
 import { characterData } from "./CharacterData";
 import { fetchAnimUrl } from "../utils/storageUtils";
+import AdminCharacterFieldEditor from "./AdminCharacterFieldEditor";
+import type { CharacterDocumentTarget } from "../services/adminCharacterFields";
 
-type Props = { characters: any[] };
+type PreviewCharacter = { id: string; name?: string; playerName?: string; [key: string]: unknown };
+type Props = {
+    characters: PreviewCharacter[];
+    customCharacters: PreviewCharacter[];
+    uid: string;
+    onFieldSaved: (target: CharacterDocumentTarget, field: string, value: unknown) => void;
+};
 
 const CATEGORIES: { key: string; label: string }[] = [
     { key: "transformAnimations", label: "Form" },
@@ -47,19 +55,22 @@ const Cell: React.FC<{ path?: string; index: number }> = ({ path, index }) => {
     );
 };
 
-const AdminAnimationPreview: React.FC<Props> = ({ characters }) => {
-    const [charName, setCharName] = useState<string | null>(null);
+const AdminAnimationPreview: React.FC<Props> = ({ characters, customCharacters, uid, onFieldSaved }) => {
+    const [selectedKey, setSelectedKey] = useState<string | null>(null);
     const [category, setCategory] = useState<string | null>(null);
 
-    const names = (characters.length ? characters : characterData).map((c: any) => c.name as string);
-    const find = (n: string) =>
-        characters.find((c: any) => c.name === n) || characterData.find(c => c.name === n);
-
-    const char: any = charName ? find(charName) : null;
+    const options = [
+        ...characters.map(character => ({ key: `base:${character.id}`, character, target: { kind: "base" as const, id: character.id } })),
+        ...customCharacters.map(character => ({ key: `custom:${character.id}`, character, target: { kind: "custom" as const, uid, id: character.id } })),
+    ];
+    const selected = options.find(option => option.key === selectedKey);
+    const char = selected?.character;
     const merged = (key: string): string[] => {
-        const a = (char?.[key] as string[]) || [];
-        const b = ((characterData.find(c => c.name === charName) as any)?.[key] as string[]) || [];
-        return a.length ? a : b;
+        const a = char?.[key];
+        const fallback = characterData.find(c => c.name === char?.name);
+        const b = fallback?.[key as keyof typeof fallback];
+        if (Array.isArray(a)) return a.map(value => typeof value === "string" ? value : "");
+        return Array.isArray(b) ? b.map(value => typeof value === "string" ? value : "") : [];
     };
     const paths = category ? merged(category) : [];
     const count = Math.max(paths.length, 7);
@@ -71,24 +82,32 @@ const AdminAnimationPreview: React.FC<Props> = ({ characters }) => {
         <div className="col-span-3 border-t pt-3 mt-2">
             <div className="font-semibold text-center mb-2">Animation Preview (admin)</div>
             <div className="flex flex-wrap gap-2 justify-center mb-2">
-                {names.map(n => (
-                    <button key={n} className={btn(n === charName)} onClick={() => { setCharName(n === charName ? null : n); setCategory(null); }}>{n}</button>
+                {options.map(option => (
+                    <button key={option.key} className={btn(option.key === selectedKey)} onClick={() => { setSelectedKey(option.key === selectedKey ? null : option.key); setCategory(null); }}>
+                        {option.character.playerName || option.character.name || option.character.id} ({option.target.kind})
+                    </button>
                 ))}
             </div>
-            {charName && (
+            {selected && (
                 <div className="flex flex-wrap gap-2 justify-center mb-2">
                     {CATEGORIES.map(c => (
                         <button key={c.key} className={btn(c.key === category)} onClick={() => setCategory(c.key === category ? null : c.key)}>{c.label}</button>
                     ))}
                 </div>
             )}
-            {charName && category && (
+            {selected && category && (
                 <div className="grid grid-cols-4 gap-2">
                     {Array.from({ length: count }, (_, i) => (
-                        <Cell key={`${charName}-${category}-${i}`} path={paths[i]} index={i} />
+                        <Cell key={`${selectedKey}-${category}-${i}`} path={paths[i]} index={i} />
                     ))}
                 </div>
             )}
+            {selected && <AdminCharacterFieldEditor
+                key={selected.key}
+                target={selected.target}
+                previewValues={{ ...selected.character, ...Object.fromEntries(CATEGORIES.map(item => [item.key, merged(item.key)])) }}
+                onSaved={onFieldSaved}
+            />}
         </div>
     );
 };

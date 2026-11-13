@@ -268,8 +268,9 @@ const Dashboard: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCharacter?.animation]);
 
-  // Load wounded URL when character switches or transforms (stable — does NOT re-run on HP change)
+  // Load wounded URL when the character, form, or wounded animations change.
   useEffect(() => {
+    let active = true;
     // Look up woundedAnimations from merged char first, then fall back to raw base characters array
     const baseChar = characters.find((c: any) => c.id === selectedCharacter?.id);
     const woundedAnims: string[] =
@@ -284,10 +285,11 @@ const Dashboard: React.FC = () => {
       return;
     }
     loadAnimationUrl(woundedPath)
-      .then(url => { console.log("[wounded] URL resolved:", url ? "OK" : "EMPTY", url); setWoundedAnimUrl(url || ""); })
-      .catch(err => { console.warn("[wounded] URL fetch failed:", err); setWoundedAnimUrl(""); });
+      .then(url => { if (active) { console.log("[wounded] URL resolved:", url ? "OK" : "EMPTY", url); setWoundedAnimUrl(url || ""); } })
+      .catch(err => { console.warn("[wounded] URL fetch failed:", err); if (active) setWoundedAnimUrl(""); });
+    return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCharacter?.id, selectedCharacter?.transformIndex, characters.length]);
+  }, [selectedCharacter?.id, selectedCharacter?.transformIndex, selectedCharacter?.woundedAnimations, characters.length]);
 
   // set a sensible default selected character when characters finish loading
   useEffect(() => {
@@ -361,7 +363,13 @@ const Dashboard: React.FC = () => {
 <div className="w-full max-w-4xl">
   <p className="text-center text-gray-700 mb-4">{user?.displayName || user?.email || 'Player'}</p>
 </div>
-      <CharacterGallery isAdmin={isAdmin(uid)} onCreateUserCharacter={async (base: any, playerName: string) => {
+      <CharacterGallery isAdmin={isAdmin(uid)} uid={uid} userCharacters={userCharacters}
+        onCharacterFieldSaved={(target, field, value) => {
+          if (target.kind === "custom" && field !== "id") {
+            setUserCharacters(prev => prev[target.id] ? { ...prev, [target.id]: { ...prev[target.id], [field]: value } } : prev);
+          }
+        }}
+        onCreateUserCharacter={async (base: any, playerName: string) => {
         if (!uid) {
           alert('Please sign in to create a new character instance.');
           return;

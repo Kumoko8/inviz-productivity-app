@@ -4,17 +4,21 @@ import { getCharacters } from "../services/characterService";
 import GalleryTile from "./GalleryTile";
 import AdminAnimationPreview from "./AdminAnimationPreview";
 import usePreviewLoader from "../hooks/usePreviewLoader";
+import type { CharacterDocumentTarget } from "../services/adminCharacterFields";
 
 type Props = {
     names?: string[]; // names to show (case-insensitive). Defaults to specific set.
     isAdmin?: boolean;
+    uid: string;
+    userCharacters: Record<string, any>;
+    onCharacterFieldSaved: (target: CharacterDocumentTarget, field: string, value: unknown) => void;
     onCreateUserCharacter?: (baseCharacter: any, playerName: string) => void; // called when user picks a base and supplies player name
 };
 
 const DEFAULT_NAMES = ["Yumi", "Kiiro", "Maguro", "Mushi", "Kumo", "Roku"];
 
 
-const CharacterGallery: React.FC<Props> = ({ names, isAdmin, onCreateUserCharacter }) => {
+const CharacterGallery: React.FC<Props> = ({ names, isAdmin, uid, userCharacters, onCharacterFieldSaved, onCreateUserCharacter }) => {
     const [open, setOpen] = useState(false);
     const [displayNames, setDisplayNames] = useState<string[]>(names && names.length > 0 ? names : DEFAULT_NAMES);
     const [baseChars, setBaseChars] = useState<any[]>([]);
@@ -75,7 +79,17 @@ const CharacterGallery: React.FC<Props> = ({ names, isAdmin, onCreateUserCharact
                             </div>
                         );
                     })}
-                    {isAdmin && <AdminAnimationPreview characters={baseChars} />}
+                    {isAdmin && <AdminAnimationPreview
+                        characters={baseChars}
+                        customCharacters={Object.entries(userCharacters).filter(([id]) => !baseChars.some(base => base.id === id)).map(([id, character]) => ({ ...character, id }))}
+                        uid={uid}
+                        onFieldSaved={(target, field, value) => {
+                            if (target.kind === "base" && field !== "id") {
+                                setBaseChars(prev => prev.map(base => base.id === target.id ? { ...base, [field]: value } : base));
+                            }
+                            onCharacterFieldSaved(target, field, value);
+                        }}
+                    />}
                 </div>
             )}
             {/* Modal for entering player name */}

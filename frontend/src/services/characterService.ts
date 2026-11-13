@@ -43,7 +43,7 @@ export const uploadCharacterStill = async (
 export const getCharacters = async (): Promise<BaseCharacterFirestore[]> => {
   try {
     const snapshot = await getDocs(charactersRef);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BaseCharacterFirestore));
+    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as BaseCharacterFirestore));
   } catch (error) {
     console.error("❌ Error fetching characters:", error);
     return [];
@@ -85,7 +85,7 @@ export const getUserCharacters = async (
     const snapshot = await getDocs(userCharsRef);
     const data: Record<string, UserCharacterDataFirestore> = {};
     snapshot.docs.forEach(docSnap => {
-      data[docSnap.id] = docSnap.data() as UserCharacterDataFirestore;
+      data[docSnap.id] = { ...docSnap.data(), id: docSnap.id } as UserCharacterDataFirestore;
     });
     const bases = baseCharacters ? await baseCharacters : undefined;
     // enrich with base character transform data (read-only fallback) using targeted queries
@@ -192,7 +192,7 @@ export const getUserCharacter = async (
       } catch (err) {
         console.warn('getUserCharacter: could not lookup base character for transform fallback', err);
       }
-      return uc as UserCharacterDataFirestore;
+      return { ...uc, id: characterId } as UserCharacterDataFirestore;
     }
     return null;
   } catch (error) {

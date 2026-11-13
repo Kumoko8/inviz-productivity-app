@@ -100,6 +100,20 @@ queued frames and FPS. The current unqueued canvas is not included.
 Open the Prayers section and search by text or date to display matching prayers,
 with the newest first. Clearing the search hides the results.
 
+## Admin character editor
+
+Admins can open Character Gallery, select a character in Animation Preview,
+and edit its Firestore fields. Base character edits affect shared definitions;
+custom character edits apply only to characters in the signed-in admin's
+account. Existing per-character overrides can take precedence over base fields.
+
+Transformation thresholds and animation paths use ordered entries. Empty
+animation paths preserve their position; removing an entry shifts later forms.
+Other JSON-compatible fields can be edited individually, while fields containing
+Firestore-specific values are shown read-only. Saving updates only the selected
+field. Reload the dashboard to apply all saved changes to character data.
+Editing an `id` field does not rename the Firestore document.
+
 ## TODO
 
 - [x] Include eslint and prettier.
