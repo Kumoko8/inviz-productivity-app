@@ -81,12 +81,21 @@ const AdminAnimationPreview: React.FC<Props> = ({ characters, customCharacters, 
     return (
         <div className="col-span-3 border-t pt-3 mt-2">
             <div className="font-semibold text-center mb-2">Animation Preview (admin)</div>
-            <div className="flex flex-wrap gap-2 justify-center mb-2">
-                {options.map(option => (
-                    <button key={option.key} className={btn(option.key === selectedKey)} onClick={() => { setSelectedKey(option.key === selectedKey ? null : option.key); setCategory(null); }}>
-                        {option.character.playerName || option.character.name || option.character.id} ({option.target.kind})
-                    </button>
-                ))}
+            <div className="mb-2">
+                <label htmlFor="animation-preview-character" className="block text-sm mb-1">Character</label>
+                <select
+                    id="animation-preview-character"
+                    className="w-full border rounded px-2 py-1 bg-white"
+                    value={selected?.key ?? ""}
+                    onChange={event => { setSelectedKey(event.target.value || null); setCategory(null); }}
+                >
+                    <option value="">Select a character</option>
+                    {options.map(option => (
+                        <option key={option.key} value={option.key}>
+                            {option.character.playerName || option.character.name || option.character.id} ({option.target.kind})
+                        </option>
+                    ))}
+                </select>
             </div>
             {selected && (
                 <div className="flex flex-wrap gap-2 justify-center mb-2">

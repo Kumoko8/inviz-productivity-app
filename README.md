@@ -120,6 +120,18 @@ empty arrays, take precedence over shared base values. Character subcollection
 and animation persistence live in separate services and remain re-exported by
 `characterService.ts` for existing callers.
 
+Base character idle animations live in `characters/<character>/idle/`, and
+temporary transformation animations live in `characters/<character>/transformations/`.
+The migration script `scripts/migrate_character_animation_paths.js` uses the
+active gcloud credentials and defaults to a read-only dry run; `--apply` copies
+matching existing legacy files, verifies their contents and download URLs, and
+updates matching base and user-character Firestore fields, including paths
+with leading or trailing whitespace. It retains the
+originals and stops on conflicting destination content or concurrent document
+updates. Rerun it after resolving an error. References to missing legacy files
+are reported and left unchanged; uploading those animations requires updating
+their Firestore fields and the corresponding paths in `CharacterData.tsx`.
+
 Class Mode's individual and group XP/HP actions are managed by
 `frontend/src/components/classmode/useClassModeProgress.ts`; the progress card
 and still-image display are separate components in the same directory.

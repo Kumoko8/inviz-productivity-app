@@ -5,10 +5,10 @@ export const characterData: BaseCharacterFirestore[] = [
     {
         name: 'Kumo',
         defaultAnimation: '',
-        animation: 'characters/kumo_1.mp4',
+        animation: 'characters/kumo/idle/kumo_1.mp4',
         transformThresholds: [7, 12, 20, 31, 42, 70],
         transformTempAnimations: [
-            'characters/kumo_transform_temp_1.mp4',
+            'characters/kumo/transformations/kumo_transform_temp_1.mp4',
             'characters/kumo_transform_temp_2.mp4',
             'characters/kumo_transform_temp_3.mp4',
             'characters/kumo_transform_temp_4.mp4',
@@ -16,7 +16,7 @@ export const characterData: BaseCharacterFirestore[] = [
             'characters/kumo_transform_temp_6.mp4',
         ],
         transformAnimations: [
-            'characters/kumo_2.mp4',
+            'characters/kumo/idle/kumo_2.mp4',
             'characters/kumo_3.mp4',
             'characters/kumo_4.mp4',
             'characters/kumo_5.mp4',
@@ -45,10 +45,10 @@ export const characterData: BaseCharacterFirestore[] = [
     {
         name: 'Kiiro',
         defaultAnimation: '',
-        animation: 'characters/kiiro_1.mp4',
+        animation: 'characters/kiiro/idle/kiiro_1.mp4',
         transformThresholds: [7, 12, 20, 31, 42, 70],
         transformTempAnimations: [
-            'characters/kiiro_transform_temp_1.mp4',
+            'characters/kiiro/transformations/kiiro_transform_temp_1.mp4',
             'characters/kiiro_transform_temp_2.mp4',
             'characters/kiiro_transform_temp_3.mp4',
             'characters/kiiro_transform_temp_4.mp4',
@@ -56,7 +56,7 @@ export const characterData: BaseCharacterFirestore[] = [
             'characters/kiiro_transform_temp_6.mp4',
         ],
         transformAnimations: [
-            'characters/kiiro_2.mp4',
+            'characters/kiiro/idle/kiiro_2.mp4',
             'characters/kiiro_3.mp4',
             'characters/kiiro_4.mp4',
             'characters/kiiro_5.mp4',
@@ -85,19 +85,19 @@ export const characterData: BaseCharacterFirestore[] = [
     {
         name: 'Maguro',
         defaultAnimation: '',
-        animation: 'characters/maguro_1.mp4',
+        animation: 'characters/maguro/idle/maguro_1.mp4',
         transformThresholds: [7, 12, 20, 31, 42, 70],
         transformTempAnimations: [
-            'characters/maguro_transform_temp_1.mp4',
-            'characters/maguro_transform_temp_2.mp4',
+            'characters/maguro/transformations/maguro_transform_temp_1.mp4',
+            'characters/maguro/transformations/maguro_transform_temp_2.mp4',
             'characters/maguro_transform_temp_3.mp4',
             'characters/maguro_transform_temp_4.mp4',
             'characters/maguro_transform_temp_5.mp4',
             'characters/maguro_transform_temp_6.mp4',
         ],
         transformAnimations: [
-            'characters/maguro_2.mp4',
-            'characters/maguro_3.mp4',
+            'characters/maguro/idle/maguro_2.mp4',
+            'characters/maguro/idle/maguro_3.mp4',
             'characters/maguro_4.mp4',
             'characters/maguro_5.mp4',
             'characters/maguro_6.mp4',
@@ -126,10 +126,10 @@ export const characterData: BaseCharacterFirestore[] = [
     {
         name: 'Yumi',
         defaultAnimation: '',
-        animation: 'characters/yumi_1.mp4',
+        animation: 'characters/yumi/idle/yumi_1.mp4',
         transformThresholds: [7, 12, 20, 31, 42, 70],
         transformTempAnimations: [
-            'characters/yumi_transform_temp_1.mp4',
+            'characters/yumi/transformations/yumi_transform_temp_1.mp4',
             'characters/yumi_transform_temp_2.mp4',
             'characters/yumi_transform_temp_3.mp4',
             'characters/yumi_transform_temp_4.mp4',
@@ -137,7 +137,7 @@ export const characterData: BaseCharacterFirestore[] = [
             'characters/yumi_transform_temp_6.mp4',
         ],
         transformAnimations: [
-            'characters/yumi_2.mp4',
+            'characters/yumi/idle/yumi_2.mp4',
             'characters/yumi_3.mp4',
             'characters/yumi_4.mp4',
             'characters/yumi_5.mp4',
@@ -166,20 +166,20 @@ export const characterData: BaseCharacterFirestore[] = [
     {
         name: 'Mushi',
         defaultAnimation: '',
-        animation: 'characters/mushi_1.mp4',
+        animation: 'characters/mushi/idle/mushi_1.mp4',
         transformThresholds: [7, 12, 20, 31, 42, 70],
         transformTempAnimations: [
-            'characters/mushi_transform_temp_1.mp4',
-            'characters/mushi_transform_temp_2.mp4',
-            'characters/mushi_transform_temp_3.mp4',
+            'characters/mushi/transformations/mushi_transform_temp_1.mp4',
+            'characters/mushi/transformations/mushi_transform_temp_2.mp4',
+            'characters/mushi/transformations/mushi_transform_temp_3.mp4',
             'characters/mushi_transform_temp_4.mp4',
             'characters/mushi_transform_temp_5.mp4',
             'characters/mushi_transform_temp_6.mp4',
         ],
         transformAnimations: [
-            'characters/mushi_2.mp4',
-            'characters/mushi_3.mp4',
-            'characters/mushi_4.mp4',
+            'characters/mushi/idle/mushi_2.mp4',
+            'characters/mushi/idle/mushi_3.mp4',
+            'characters/mushi/idle/mushi_4.mp4',
             'characters/mushi_5.mp4',
             'characters/mushi_6.mp4',
             'characters/mushi_7.mp4',
@@ -207,10 +207,10 @@ export const characterData: BaseCharacterFirestore[] = [
     {
         name: 'Roku',
         defaultAnimation: '',
-        animation: 'characters/roku_1.mp4',
+        animation: 'characters/roku/idle/roku_1.mp4',
         transformThresholds: [7, 12, 20, 31, 42, 70],
         transformTempAnimations: [
-            'characters/roku_transform_temp_1.mp4',
+            'characters/roku/transformations/roku_transform_temp_1.mp4',
             'characters/roku_transform_temp_2.mp4',
             'characters/roku_transform_temp_3.mp4',
             'characters/roku_transform_temp_4.mp4',
@@ -218,7 +218,7 @@ export const characterData: BaseCharacterFirestore[] = [
             'characters/roku_transform_temp_6.mp4',
         ],
         transformAnimations: [
-            'characters/roku_2.mp4',
+            'characters/roku/idle/roku_2.mp4',
             'characters/roku_3.mp4',
             'characters/roku_4.mp4',
             'characters/roku_5.mp4',
@@ -247,4 +247,3 @@ export const characterData: BaseCharacterFirestore[] = [
 
 
 ];
-
